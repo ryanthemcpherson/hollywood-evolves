@@ -44,7 +44,7 @@ after(async () => {
   child?.kill();
 });
 
-test('binary forecast is keyboard operable, local-only, and clearable', async () => {
+test('binary private call is keyboard operable, local-only, and clearable', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.focus('#forecast-yes');
@@ -121,7 +121,7 @@ test('share copies the canonical URL when native share is unavailable', async ()
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.click('#share-forecast');
   assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/');
-  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Forecast URL copied.');
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Draft question URL copied.');
   await page.close();
 });
 
@@ -139,7 +139,7 @@ test('share reveals and selects a readonly URL when sharing APIs are unavailable
     selected: input.selectionStart === 0 && input.selectionEnd === input.value.length,
     focused: document.activeElement === input,
   })), { hidden: false, readonly: true, selected: true, focused: true });
-  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Select and copy the forecast URL.');
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Select and copy the draft question URL.');
   await page.close();
 });
 
