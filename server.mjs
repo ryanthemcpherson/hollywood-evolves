@@ -12,7 +12,6 @@ createServer((req, res) => {
     res.writeHead(405, {...headers, 'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store','Allow':'GET, HEAD'});
     return res.end('Method Not Allowed');
   }
-  if (req.url === '/healthz') { res.writeHead(200, {...headers, 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); return res.end('{"status":"ok"}'); }
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -20,6 +19,7 @@ createServer((req, res) => {
     res.writeHead(400, {...headers, 'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});
     return res.end('Bad Request');
   }
+  if (pathname === '/healthz') { res.writeHead(200, {...headers, 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); return res.end('{"status":"ok"}'); }
   let file = normalize(join(root, pathname));
   const relativePath = relative(root, file);
   if (relativePath === '..' || relativePath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(relativePath)) {
@@ -27,7 +27,7 @@ createServer((req, res) => {
     return res.end('Forbidden');
   }
   if (existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html');
-  if (!existsSync(file)) file = extname(pathname) ? join(root, '404.html') : join(root, 'index.html');
+  if (!existsSync(file)) file = join(root, '404.html');
   const status = file.endsWith('404.html') ? 404 : 200;
   const hashedAsset = /^\/assets\/.+-[A-Za-z0-9_-]{8,}\.(?:css|js)$/.test(pathname);
   const cache = file.endsWith('.html') ? 'no-cache' : hashedAsset ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';

@@ -1,3 +1,5 @@
+document.documentElement.classList.add('enhanced');
+
 const forecastChoices = [...document.querySelectorAll('input[name="private-forecast"]')];
 const reset = document.querySelector('#reset-forecast');
 const menuButton = document.querySelector('.menu-button');
@@ -61,7 +63,7 @@ window.addEventListener('resize', () => {
 const shareData = {
   title: 'Hollywood Evolves — Episode 01 forecast',
   text: 'Consider the draft Episode 01 forecast on the future of ad-supported streaming plans.',
-  url: document.querySelector('link[rel="canonical"]').href,
+  url: 'https://hollywoodevolves.mcpherson.app/#forecast',
 };
 
 function revealShareUrl(message) {

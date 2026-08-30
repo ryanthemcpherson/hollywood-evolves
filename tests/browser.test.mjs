@@ -78,6 +78,62 @@ test('forecast and navigation still work when browser storage is unavailable', a
   await page.close();
 });
 
+test('mobile navigation remains visible and the inert Menu control stays hidden without JavaScript', async () => {
+  const page = await newPage();
+  await page.setJavaScriptEnabled(false);
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const navigation = await page.$eval('nav[aria-label="Primary navigation"]', (nav) => ({
+    menuDisplay: getComputedStyle(nav.querySelector('.menu-button')).display,
+    links: [...nav.querySelectorAll('.nav-links a')].map((link) => ({
+      text: link.textContent.trim(),
+      display: getComputedStyle(link).display,
+      width: link.getBoundingClientRect().width,
+      height: link.getBoundingClientRect().height,
+    })),
+  }));
+  assert.equal(navigation.menuDisplay, 'none');
+  assert.equal(navigation.links.length, 4);
+  assert.ok(navigation.links.every(({ display, width, height }) => display !== 'none' && width > 0 && height > 0));
+  await page.close();
+});
+
+test('forecast ledger is a native table with a screen-reader caption and scoped headers', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const ledger = await page.$eval('.ledger', (table) => ({
+    tag: table.tagName,
+    caption: table.querySelector('caption')?.textContent.trim(),
+    columns: [...table.querySelectorAll('thead th')].map((cell) => [cell.textContent.trim(), cell.scope]),
+    rows: [...table.querySelectorAll('tbody tr')].map((row) => [row.querySelector('th')?.textContent.trim(), row.querySelector('th')?.scope]),
+  }));
+  assert.equal(ledger.tag, 'TABLE');
+  assert.equal(ledger.caption, 'Episode 01 forecast status');
+  assert.deepEqual(ledger.columns, [['View', 'col'], ['Probability', 'col'], ['Status', 'col']]);
+  assert.deepEqual(ledger.rows, [['Guest', 'row'], ['Community', 'row'], ['Research System', 'row']]);
+  await page.close();
+});
+
+test('authored focus rings remain two-color on dark forecast, binary proxy, and red footer surfaces', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const samples = [];
+  for (const selector of ['#share-forecast', '#forecast-yes', 'footer a']) {
+    await page.focus(selector);
+    samples.push(await page.$eval(selector, (element) => {
+      const target = element.matches('.binary-choices input') ? element.nextElementSibling : element;
+      const style = getComputedStyle(target);
+      return { outlineColor: style.outlineColor, outlineWidth: style.outlineWidth, boxShadow: style.boxShadow };
+    }));
+  }
+  for (const sample of samples) {
+    assert.equal(sample.outlineWidth, '3px');
+    assert.equal(sample.outlineColor, 'rgb(250, 247, 240)');
+    assert.match(sample.boxShadow, /rgb\(23, 23, 21\).*0px 0px 0px 6px/);
+  }
+  await page.close();
+});
+
 test('mobile menu manages keyboard, outside click, scroll lock, and focus', async () => {
   const page = await newPage();
   await page.setViewport({ width: 390, height: 844 });
@@ -113,7 +169,7 @@ test('native share receives the canonical forecast payload', async () => {
   assert.deepEqual(await page.evaluate(() => window.__sharedForecast), {
     title: 'Hollywood Evolves — Episode 01 forecast',
     text: 'Consider the draft Episode 01 forecast on the future of ad-supported streaming plans.',
-    url: 'https://hollywoodevolves.mcpherson.app/',
+    url: 'https://hollywoodevolves.mcpherson.app/#forecast',
   });
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Sharing request completed.');
   await page.close();
@@ -127,7 +183,7 @@ test('share copies the canonical URL when native share is unavailable', async ()
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.click('#share-forecast');
-  assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/');
+  assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/#forecast');
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Draft question URL copied.');
   await page.close();
 });

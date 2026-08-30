@@ -57,7 +57,7 @@ The homepage keeps only compact footer links to static Accessibility, Privacy, a
 - Start: `npm start`
 - Health check: `/healthz`
 
-The Node server (Node 20.19+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, returns the app shell for extensionless routes, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for missing asset paths.
+The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, serves the homepage only at `/`, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for unknown paths.
 
 ```bash
 npm run build
@@ -69,4 +69,4 @@ curl -i http://127.0.0.1:4173/healthz
 
 Ian McPherson's portrait is used locally from the supplied TMT Insights source URL and credited in the site footer.
 
-The original HE monogram icon is maintained as an SVG source and exported locally as SVG, ICO, Apple touch, and 192/512 maskable-safe PNG assets. The Open Graph image remains 1200×630.
+The original HE monogram icon is maintained as an SVG source and exported locally as SVG, ICO, Apple touch, and ordinary 192/512 PNG assets. A separate deliberately inset 512px maskable icon keeps the monogram inside the central safe region. The Open Graph image remains 1200×630.

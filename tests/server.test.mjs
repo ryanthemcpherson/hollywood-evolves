@@ -64,6 +64,26 @@ test('malformed URL returns 400 without terminating the server', async (t) => {
   assert.equal((await get(port, '/healthz')).status, 200);
 });
 
+test('health route ignores query strings', async (t) => {
+  const { port } = await startServer(t);
+  const response = await get(port, '/healthz?probe=1');
+  assert.equal(response.status, 200);
+  assert.equal(response.body, '{"status":"ok"}');
+});
+
+test('only the root route serves the homepage and unknown extensionless paths are 404', async (t) => {
+  const { port } = await startServer(t);
+  const homepage = await get(port, '/?preview=1');
+  assert.equal(homepage.status, 200);
+  assert.match(homepage.body, /<title>Hollywood Evolves/);
+
+  for (const path of ['/unknown', '/unknown?source=test']) {
+    const response = await get(port, path);
+    assert.equal(response.status, 404, path);
+    assert.match(response.body, /Page not found/i, path);
+  }
+});
+
 test('methods other than GET and HEAD are rejected', async (t) => {
   const { port } = await startServer(t);
   const response = await get(port, '/', 'POST');
@@ -100,7 +120,7 @@ test('Open Graph PNG is served with the image/png media type', async (t) => {
 
 test('manifest and modern icon routes are served with correct media types', async (t) => {
   const { port } = await startServer(t);
-  for (const [path, type] of [['/site.webmanifest', 'application/manifest+json'], ['/favicon.ico', 'image/x-icon'], ['/apple-touch-icon.png', 'image/png'], ['/icon-192.png', 'image/png'], ['/icon-512.png', 'image/png']]) {
+  for (const [path, type] of [['/site.webmanifest', 'application/manifest+json'], ['/favicon.ico', 'image/x-icon'], ['/apple-touch-icon.png', 'image/png'], ['/icon-192.png', 'image/png'], ['/icon-512.png', 'image/png'], ['/icon-maskable-512.png', 'image/png']]) {
     const response = await get(port, path);
     assert.equal(response.status, 200, path);
     assert.equal(response.headers['content-type'], type, path);
