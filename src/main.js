@@ -89,11 +89,11 @@ shareButton.addEventListener('click', async () => {
   if (typeof navigator.clipboard?.writeText === 'function') {
     try {
       await navigator.clipboard.writeText(shareData.url);
-      shareStatus.textContent = 'Forecast URL copied.';
+      shareStatus.textContent = 'Draft question URL copied.';
       return;
     } catch {
       // Continue to the selectable URL when clipboard permission is unavailable.
     }
   }
-  revealShareUrl('Select and copy the forecast URL.');
+  revealShareUrl('Select and copy the draft question URL.');
 });
