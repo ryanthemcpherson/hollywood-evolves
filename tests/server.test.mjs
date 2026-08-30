@@ -12,9 +12,9 @@ async function availablePort() {
   return port;
 }
 
-function get(port, path) {
+function get(port, path, method = 'GET') {
   return new Promise((resolve, reject) => {
-    const req = request({ host: '127.0.0.1', port, path }, (res) => {
+    const req = request({ host: '127.0.0.1', port, path, method }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => { body += chunk; });
@@ -32,7 +32,12 @@ async function startServer(t) {
     env: { ...process.env, PORT: String(port) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  t.after(() => child.kill());
+  t.after(async () => {
+    if (child.exitCode !== null) return;
+    const exited = new Promise((resolve) => child.once('exit', resolve));
+    child.kill();
+    await exited;
+  });
 
   await new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Server did not start')), 3000);
@@ -57,6 +62,14 @@ test('malformed URL returns 400 without terminating the server', async (t) => {
   assert.equal(response.body, 'Bad Request');
   assert.equal(child.exitCode, null);
   assert.equal((await get(port, '/healthz')).status, 200);
+});
+
+test('methods other than GET and HEAD are rejected', async (t) => {
+  const { port } = await startServer(t);
+  const response = await get(port, '/', 'POST');
+  assert.equal(response.status, 405);
+  assert.equal(response.body, 'Method Not Allowed');
+  assert.equal(response.headers.allow, 'GET, HEAD');
 });
 
 test('encoded traversal cannot read from a sibling of the dist directory', async (t) => {

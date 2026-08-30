@@ -41,7 +41,11 @@ before(async () => {
 
 after(async () => {
   await browser?.close();
-  child?.kill();
+  if (child && child.exitCode === null) {
+    const exited = new Promise((resolve) => child.once('exit', resolve));
+    child.kill();
+    await exited;
+  }
 });
 
 test('binary private call is keyboard operable, local-only, and clearable', async () => {
