@@ -4,18 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#f3efe6">
+    <meta name="color-scheme" content="light">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Hollywood Evolves: Ian McPherson’s podcast and public forecast ledger about the technologies changing Hollywood.">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Hollywood Evolves — Podcast & Forecast Ledger">
-    <meta property="og:description" content="The technologies that changed Hollywood—and the odds on what changes next.">
+    <meta property="og:description" content="Hollywood Evolves: Ian McPherson’s podcast and public forecast ledger about the technologies changing Hollywood.">
     <meta property="og:url" content="https://hollywoodevolves.mcpherson.app/">
+    <meta property="og:site_name" content="Hollywood Evolves">
+    <meta property="og:locale" content="en_US">
     <meta property="og:image" content="https://hollywoodevolves.mcpherson.app/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Hollywood Evolves — Podcast and public forecast ledger">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Hollywood Evolves — Podcast & Forecast Ledger">
+    <meta name="twitter:description" content="Hollywood Evolves: Ian McPherson’s podcast and public forecast ledger about the technologies changing Hollywood.">
+    <meta name="twitter:image" content="https://hollywoodevolves.mcpherson.app/og-image.png">
+    <meta name="twitter:image:alt" content="Hollywood Evolves — Podcast and public forecast ledger">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Hollywood Evolves">
+    <link rel="canonical" href="https://hollywoodevolves.mcpherson.app/">
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
+    <link rel="manifest" href="/site.webmanifest">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
@@ -40,8 +56,8 @@
         <div class="hero-kicker"><span>01</span> A podcast and public forecast ledger</div>
         <h1 id="hero-title">The technologies that changed Hollywood—<em>and the odds on what changes next.</em></h1>
         <div class="hero-foot">
-          <p>Ian McPherson brings an institutional voice and a current operator together for one focused conversation: what changed, what is changing, and what each believes will happen next.</p>
-          <div class="hero-actions"><a class="button primary" href="#forecast">View the first forecast</a><a class="text-link" href="#season">Explore season one <span aria-hidden="true">↓</span></a></div>
+          <p>Ian McPherson pairs someone who helped build an earlier Hollywood transition with someone working inside the next one. Each episode traces what changed, tests what is changing, and ends with a forecast precise enough to revisit.</p>
+          <div class="hero-actions"><a class="button primary" href="#forecast">Read the Episode 01 forecast</a><a class="text-link" href="#season">See all eight draft questions <span aria-hidden="true">↓</span></a></div>
         </div>
         <div class="release-line"><span>Episode 01</span><span>Recording November 2026</span><span>Publishing January 2027</span></div>
       </section>
@@ -54,6 +70,14 @@
             <p class="micro">Episode 01 · Customer Evolution</p>
             <h2 id="forecast-title">Will at least three of Netflix, Disney+, Max, Peacock, and Paramount+ report more U.S. subscribers on ad-supported plans than ad-free plans by December 31, 2029?</h2>
             <p class="draft">Draft question. The criteria and sources are still under editorial review.</p>
+            <div class="share-tools">
+              <button id="share-forecast" class="share-button" type="button" aria-describedby="share-status">Share forecast</button>
+              <p id="share-status" class="share-status" aria-live="polite"></p>
+              <div id="share-fallback" class="share-fallback" hidden>
+                <label for="share-url">Copy this URL</label>
+                <input id="share-url" type="url" readonly value="https://hollywoodevolves.mcpherson.app/">
+              </div>
+            </div>
           </div>
           <div class="ledger" aria-label="Episode 01 forecast status">
             <div class="ledger-head"><span>View</span><span>Probability</span><span>Status</span></div>
@@ -62,15 +86,19 @@
             <div class="ledger-row"><strong>Research System</strong><span class="empty">—</span><span>Not published</span></div>
           </div>
           <div class="private-forecast">
-            <div class="private-heading"><div><span class="micro">Try the instrument</span><h3>Your private forecast</h3></div><output for="probability" id="probability-output">50%</output></div>
-            <label class="sr-only" for="probability">Your private forecast probability</label>
-            <input id="probability" type="range" min="1" max="99" value="50" aria-describedby="privacy-note">
-            <div class="range-labels"><span>1% · Very unlikely</span><span>Very likely · 99%</span></div>
-            <p id="privacy-note">This stays in this browser. It is not submitted, published, or counted in the Community Forecast.</p>
-            <button class="reset" id="reset-forecast" type="button">Reset to 50%</button>
+            <div class="private-heading"><div><span class="micro">Try the instrument</span><h3>Your private forecast</h3></div></div>
+            <fieldset aria-describedby="privacy-note">
+              <legend>If you had to forecast this draft question today, what would you choose?</legend>
+              <div class="binary-choices">
+                <label><input id="forecast-yes" name="private-forecast" type="radio" value="yes"><span>Yes</span></label>
+                <label><input id="forecast-no" name="private-forecast" type="radio" value="no"><span>No</span></label>
+              </div>
+            </fieldset>
+            <p id="privacy-note">Your choice stays only in this browser. It is not submitted, published, or counted in the Community Forecast.</p>
+            <button class="reset" id="reset-forecast" type="button">Clear my choice</button>
           </div>
           <details class="contract">
-            <summary>Preview the resolution contract <span>+</span></summary>
+            <summary>Preview the resolution contract <span aria-hidden="true">+</span></summary>
             <div class="contract-body"><p><b>Threshold</b> At least three of the five named services.</p><p><b>Deadline</b> December 31, 2029.</p><p><b>Evidence</b> Public subscriber reporting. Exact primary sources, definitions, geography, fallback resolver, and invalidation rules must be fixed before opening.</p></div>
           </details>
         </div>
@@ -87,27 +115,27 @@
       </section>
 
       <section class="season-section" id="season" aria-labelledby="season-title">
-        <div class="season-header"><div><div class="section-label"><span>04</span> Working season themes</div><h2 id="season-title">Eight areas shaping a changing industry.</h2></div><p>Customer Evolution is planned for Episode 01. Remaining theme order and episode assignments are in development.</p></div>
-        <ol class="season-list">
-          <li><span>Theme 01</span><strong>Customer Evolution</strong><span>Episode 01 · draft question in review</span></li>
-          <li><span>Theme 02</span><strong>Media Supply Chain Evolution</strong><span>In development</span></li>
-          <li><span>Theme 03</span><strong>Creator Evolution</strong><span>In development</span></li>
-          <li><span>Theme 04</span><strong>Content Evolution</strong><span>In development</span></li>
-          <li><span>Theme 05</span><strong>Commercial Evolution</strong><span>In development</span></li>
-          <li><span>Theme 06</span><strong>Audio Evolution</strong><span>In development</span></li>
-          <li><span>Theme 07</span><strong>VFX Evolution</strong><span>In development</span></li>
-          <li><span>Theme 08</span><strong>Animation Evolution</strong><span>In development</span></li>
+        <div class="season-header"><div><div class="section-label"><span>04</span> Working season questions</div><h2 id="season-title">Eight questions about where Hollywood goes next.</h2></div><p>Customer Evolution is planned for Episode 01. Remaining theme order and episode assignments are in development.</p></div>
+        <ol class="season-ledger">
+          <li class="season-reference"><span class="episode-number">Episode 01</span><div><h3>Customer Evolution</h3><p>Featured forecast above.</p></div><span class="draft-state">Draft question / criteria in review / not open</span></li>
+          <li><details><summary><span class="episode-number">Provisional 02</span><span class="episode-title">Media Supply Chain Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2028, will two major U.S. studios publicly confirm production use of an AI agent that can initiate media-supply-chain actions without per-action human approval?</p><p><strong>Why it matters:</strong> Autonomous handoffs could change operating risk, oversight, and the cost of moving media through production.</p><dl><div><dt>YES threshold</dt><dd>Two major U.S. studios publicly confirm qualifying production use.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2028</dd></div><div><dt>Evidence / resolver</dt><dd>Public studio disclosure + agreed trade-source hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 03</span><span class="episode-title">Creator Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2030, will a fully synthetic performer receive top billing in a film released in at least 2,000 U.S. theaters?</p><p><strong>Why it matters:</strong> Top billing would test the boundaries of creative identity, audience acceptance, labor, and control.</p><dl><div><dt>YES threshold</dt><dd>A fully synthetic performer receives top billing in a 2,000-theater U.S. release.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2030</dd></div><div><dt>Evidence / resolver</dt><dd>Public distributor billing and release disclosure + agreed trade-source hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 04</span><span class="episode-title">Content Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2029, will a film with audience-selected narrative branches receive a release in at least 1,000 U.S. theaters?</p><p><strong>Why it matters:</strong> A wide theatrical release would show whether interactive storytelling can move beyond at-home formats.</p><dl><div><dt>YES threshold</dt><dd>A qualifying branched-narrative film reaches at least 1,000 U.S. theaters.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2029</dd></div><div><dt>Evidence / resolver</dt><dd>Public distributor release disclosure + agreed theatrical-data hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 05</span><span class="episode-title">Commercial Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2028, will at least one of Netflix, Disney+, Max, Peacock, and Paramount+ launch click-to-buy product placement inside scripted programming?</p><p><strong>Why it matters:</strong> In-program purchasing could join storytelling, advertising, and retail in one commercial surface.</p><dl><div><dt>YES threshold</dt><dd>At least one of the five named services launches the feature.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2028</dd></div><div><dt>Evidence / resolver</dt><dd>Public product launch + agreed platform and trade-source hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 06</span><span class="episode-title">Audio Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2029, will at least two of Netflix, Disney+, Max, Peacock, and Paramount+ let viewers personalize dialogue, music, or effects levels for a scripted title?</p><p><strong>Why it matters:</strong> Viewer-controlled mixes could reshape accessibility, creative intent, and audio delivery standards.</p><dl><div><dt>YES threshold</dt><dd>At least two of the five named services offer qualifying controls.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2029</dd></div><div><dt>Evidence / resolver</dt><dd>Public product documentation + agreed platform and trade-source hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 07</span><span class="episode-title">VFX Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2028, will a major studio publicly state that generative tools created more than half of the final VFX shots in a 2,000-theater release?</p><p><strong>Why it matters:</strong> Majority use in a wide release would mark a material shift in VFX production practice and accountability.</p><dl><div><dt>YES threshold</dt><dd>A major studio states that qualifying tools created over half the final VFX shots in a 2,000-theater release.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2028</dd></div><div><dt>Evidence / resolver</dt><dd>Public studio disclosure + agreed release-data and trade-source hierarchy.</dd></div></dl></div></details></li>
+          <li><details><summary><span class="episode-number">Provisional 08</span><span class="episode-title">Animation Evolution</span><span class="draft-state">Draft question / criteria in review / not open</span></summary><div class="episode-draft"><p class="draft-question">By December 31, 2029, will a final U.S. appellate decision hold that training a generative model on unlicensed copyrighted audiovisual works is not fair use?</p><p><strong>Why it matters:</strong> Appellate precedent could reset the rights and costs underlying generative animation workflows.</p><dl><div><dt>YES threshold</dt><dd>A final U.S. appellate decision makes the specified fair-use holding.</dd></div><div><dt>Resolve by</dt><dd>December 31, 2029</dd></div><div><dt>Evidence / resolver</dt><dd>Public court docket and opinion + agreed legal-source hierarchy.</dd></div></dl></div></details></li>
         </ol>
       </section>
 
       <section class="panel-section dark" aria-labelledby="panel-title">
         <div class="section-label"><span>05</span> Opening with Episode 01</div>
-        <div class="panel-layout"><div><p class="micro">Verified industry panel</p><h2 id="panel-title">A place for accountable, informed takes.</h2></div><div><p>Industry contributors will be identity-verified before written perspectives appear. Participation will open with moderation, rate limits, and abuse controls in place.</p><p class="muted">No public submissions are being accepted in this preview. No sample comments or invented contributors are shown.</p></div></div>
+        <div class="panel-layout"><div><p class="micro">Verified industry panel</p><h2 id="panel-title">Industry voices, identified and on the record.</h2></div><div><p>Industry contributors will be identity-verified before written perspectives appear. Participation will open with moderation, rate limits, and abuse controls in place.</p><p class="muted">No public submissions are being accepted in this preview. No sample comments or invented contributors are shown.</p></div></div>
       </section>
 
       <section class="host-section" id="host" aria-labelledby="host-title">
-        <figure class="portrait"><img src="/assets/ian-mcpherson.webp" alt="Portrait of Ian McPherson" width="768" height="1024"><figcaption>Ian McPherson · Host</figcaption></figure>
-        <div class="host-copy"><div class="section-label"><span>06</span> About the host</div><p class="micro">Operator · Convener · Media technologist</p><h2 id="host-title">Ian McPherson</h2><p class="lead">Ian has spent more than 25 years inside the systems that create, move, and monetize entertainment.</p><p>He is Head of Business Development at TMT Insights. His career includes 11 years at AWS across industry marketing, strategic partnerships, and global business development for media and entertainment.</p><p>Hollywood Evolves brings the people who built the last transition together with the operators building the next one—and asks what the evidence allows them to say about what comes next.</p><div class="credentials"><span>25+ years in media technology</span><span>11 years at AWS</span><span>MA, Communications · USC</span></div></div>
+        <figure class="portrait"><img src="/assets/ian-mcpherson.webp" alt="" width="768" height="1024" loading="lazy" decoding="async"><figcaption>Ian McPherson · Host</figcaption></figure>
+        <div class="host-copy"><div class="section-label"><span>06</span> About the host</div><p class="micro">Media technology and business development</p><h2 id="host-title">Ian McPherson</h2><p class="lead">Ian has spent more than 25 years inside the systems that create, move, and monetize entertainment.</p><p>He is Head of Business Development at TMT Insights. His career includes 11 years at AWS across industry marketing, strategic partnerships, and global business development for media and entertainment.</p><p>Hollywood Evolves brings the people who built the last transition together with the operators building the next one—and asks what the evidence allows them to say about what comes next.</p><div class="credentials"><span>25+ years in media technology</span><span>11 years at AWS</span><span>MA, Communications · USC</span></div></div>
       </section>
 
       <section class="method-section" id="method" aria-labelledby="method-title">
@@ -123,7 +151,7 @@
     <footer>
       <div class="footer-mark"><span>HOLLYWOOD</span><span>EVOLVES</span></div>
       <div><p>A podcast hosted by Ian McPherson.</p><p>Produced by TMT Insights in partnership with the Digital Entertainment Group (DEG).</p></div>
-      <div class="footer-meta"><span>Preview · In development</span><span>© 2026 Hollywood Evolves</span></div>
+      <div class="footer-meta"><span>Preview · In development</span><nav class="legal-nav" aria-label="Legal"><a href="/accessibility.html">Accessibility</a><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a></nav><span>© 2026 Hollywood Evolves</span></div>
       <p class="disclosure">Editorial views belong to their speakers and do not necessarily represent TMT Insights, DEG, guests’ employers, or Ian’s former employer. Portrait courtesy of TMT Insights.</p>
     </footer>
     <script type="module" src="/src/main.js"></script>

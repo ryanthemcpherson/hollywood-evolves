@@ -84,3 +84,33 @@ test('Open Graph PNG is served with the image/png media type', async (t) => {
   assert.equal(response.status, 200);
   assert.equal(response.headers['content-type'], 'image/png');
 });
+
+test('manifest and modern icon routes are served with correct media types', async (t) => {
+  const { port } = await startServer(t);
+  for (const [path, type] of [['/site.webmanifest', 'application/manifest+json'], ['/favicon.ico', 'image/x-icon'], ['/apple-touch-icon.png', 'image/png'], ['/icon-192.png', 'image/png'], ['/icon-512.png', 'image/png']]) {
+    const response = await get(port, path);
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers['content-type'], type, path);
+  }
+});
+
+test('legal pages are served as static HTML', async (t) => {
+  const { port } = await startServer(t);
+  for (const [path, heading] of [['/accessibility.html', 'Accessibility'], ['/privacy.html', 'Privacy'], ['/terms.html', 'Terms']]) {
+    const response = await get(port, path);
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers['content-type'], 'text/html; charset=utf-8', path);
+    assert.match(response.body, new RegExp(`<h1>${heading}</h1>`), path);
+  }
+});
+
+test('security headers remain on HTML and asset responses', async (t) => {
+  const { port } = await startServer(t);
+  for (const path of ['/', '/favicon.svg']) {
+    const { headers } = await get(port, path);
+    assert.equal(headers['x-content-type-options'], 'nosniff');
+    assert.equal(headers['x-frame-options'], 'DENY');
+    assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
+    assert.match(headers['permissions-policy'], /camera=\(\)/);
+  }
+});
