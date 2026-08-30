@@ -15,3 +15,18 @@ html{overflow-x:hidden}body{min-width:0;overflow-wrap:anywhere}body.menu-open{ov
 @media(max-width:380px){.hero h1{font-size:clamp(45px,15.5vw,60px)}.hero-actions{gap:12px}.forecast-section,.format-section,.season-section,.panel-section,.host-section,.method-section{padding-left:18px;padding-right:18px}.binary-choices{grid-template-columns:1fr}.ledger-head,.ledger-row{grid-template-columns:1.05fr .55fr 1fr;gap:6px}.ledger-row{font-size:11px}}
 @media(forced-colors:active){*{forced-color-adjust:auto}body:before{display:none}.preview-stamp,.private-forecast,.binary-choices span,.share-fallback input{border:2px solid CanvasText}.status i{background:CanvasText}.binary-choices input:checked+span{outline:4px solid Highlight}.portrait img{filter:none}}
 .season-reference p{color:#57524b}
+
+/* Reviewed accessibility and progressive-enhancement refinements. */
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--white);outline-offset:3px;box-shadow:0 0 0 6px var(--ink)}
+.binary-choices input:focus-visible+span{outline:3px solid var(--white);outline-offset:3px;box-shadow:0 0 0 6px var(--ink)}
+.forecast-intro .why{max-width:62ch;color:#d3ccc2;font-size:14px}
+.ledger{width:100%;border-collapse:collapse;table-layout:fixed;text-align:left}
+.ledger th,.ledger td{height:58px;padding:0 12px 0 0;border-bottom:1px solid #46433e;font-size:12px;font-weight:400}
+.ledger th:first-child,.ledger td:first-child{width:45%;font-weight:600}
+.ledger th:nth-child(2),.ledger td:nth-child(2){width:23%}
+.ledger thead th{text-transform:uppercase;letter-spacing:.1em;font-size:9px;color:#918b82}
+.ledger tbody .empty{font:400 32px var(--serif);color:#817c74}
+.ledger tbody td:last-child{color:#aaa39a}
+@media(max-width:800px){html:not(.enhanced) .site-header{height:auto;min-height:112px;grid-template-columns:1fr;padding-top:16px;padding-bottom:12px;gap:8px}html:not(.enhanced) .site-header nav{justify-self:start;width:100%}html:not(.enhanced) .nav-links{position:static;display:flex;flex-wrap:wrap;gap:0 18px;padding:0;border:0;background:transparent}html:not(.enhanced) .nav-links a{min-height:44px;border:0;font-size:12px}.enhanced .menu-button{display:block}.enhanced .nav-links{display:none}.enhanced .nav-links.open{display:flex}}
+@media(forced-colors:active){a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,.binary-choices input:focus-visible+span{outline:3px solid Highlight;box-shadow:none}}
+@media(max-width:800px){html:not(.enhanced) .menu-button{display:none}}
