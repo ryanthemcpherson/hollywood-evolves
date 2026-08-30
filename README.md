@@ -24,6 +24,41 @@ Each episode explains a prior industry transition, examines today's operating si
 - `docs/forecasting-research-sources.json` — machine-readable source list for that research reference.
 - Claude artifact prototype — reference only; its sample aired states, percentages, trend readings, and comments must not be treated as real data.
 
-## Status
+## Preview website
 
-Discovery and product definition. No public site, forecast, guest commitment, partnership claim beyond the supplied brief, or production date should be presented as live until verified.
+This repository contains the static Vite preview for `hollywoodevolves.mcpherson.app`. The preview is deliberately `noindex`; it contains no live episode, submitted audience data, or published forecast values. Episode 01 records in November 2026 and publishes in January 2027.
+
+### Local development
+
+```bash
+npm ci
+npm run dev
+```
+
+### Check and build
+
+```bash
+npm test
+npm run check
+npm run build
+```
+
+The production site is written to `dist/`.
+
+### Production / Railway
+
+- Build: `npm run build`
+- Start: `npm start`
+- Health check: `/healthz`
+
+The Node server (Node 20.19+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, returns the app shell for extensionless routes, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for missing asset paths.
+
+```bash
+npm run build
+PORT=4173 npm start
+curl -i http://127.0.0.1:4173/healthz
+```
+
+## Asset credit
+
+Ian McPherson's portrait is used locally from the supplied TMT Insights source URL and credited in the site footer.
