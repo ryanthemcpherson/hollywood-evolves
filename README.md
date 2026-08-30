@@ -45,6 +45,12 @@ npm run build
 
 The production site is written to `dist/`.
 
+`npm test` is the complete quality gate. It runs content and metadata assertions, validates the icon inventory and exact PNG dimensions, builds the Vite site, starts temporary local servers, verifies traversal handling/security headers/legal routes/asset media types, and drives the system `/usr/bin/chromium` through Puppeteer Core. Browser checks cover the binary local forecast, storage-denied fallback, menu keyboard behavior and appropriate focus placement, minimum 44×44 CSS-pixel targets, horizontal reflow, and axe-core WCAG 2.2 Level A/AA rules (including contrast) at representative widths. Each test-owned server and browser is closed during teardown; no browser download is used.
+
+## Compliance pages
+
+The homepage keeps only compact footer links to static Accessibility, Privacy, and Terms pages in `public/`. Those reading-first pages share `public/legal.css`, remain `noindex, nofollow` during preview, and document only the current implementation. The accessibility target is WCAG 2.2 AA, not a legal certification or guarantee. Automated checks cover their semantics, metadata, reflow, targets, and axe rules at 390px and 1440px; manual review still remains necessary.
+
 ### Production / Railway
 
 - Build: `npm run build`
@@ -62,3 +68,5 @@ curl -i http://127.0.0.1:4173/healthz
 ## Asset credit
 
 Ian McPherson's portrait is used locally from the supplied TMT Insights source URL and credited in the site footer.
+
+The original HE monogram icon is maintained as an SVG source and exported locally as SVG, ICO, Apple touch, and 192/512 maskable-safe PNG assets. The Open Graph image remains 1200×630.

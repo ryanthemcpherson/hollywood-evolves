@@ -56,8 +56,8 @@ These are starting points, not publishable contracts until Ian/DEG agree on defi
 2. **Media Supply Chain Evolution** — By December 31, 2028, will two major U.S. studios publicly confirm production use of an AI agent that can initiate media-supply-chain actions without per-action human approval?
 3. **Creator Evolution** — By December 31, 2030, will a fully synthetic performer receive top billing in a film released in at least 2,000 U.S. theaters?
 4. **Content Evolution** — By December 31, 2029, will a film with audience-selected narrative branches receive a release in at least 1,000 U.S. theaters?
-5. **Commercial Evolution** — By December 31, 2028, will any of the five named major U.S. streamers launch click-to-buy product placement inside scripted programming?
-6. **Audio Evolution** — By December 31, 2029, will two named major streamers let viewers personalize dialogue, music, or effects levels for a scripted title?
+5. **Commercial Evolution** — By December 31, 2028, will at least one of Netflix, Disney+, Max, Peacock, and Paramount+ launch click-to-buy product placement inside scripted programming?
+6. **Audio Evolution** — By December 31, 2029, will at least two of Netflix, Disney+, Max, Peacock, and Paramount+ let viewers personalize dialogue, music, or effects levels for a scripted title?
 7. **VFX Evolution** — By December 31, 2028, will a major studio publicly state that generative tools created more than half of the final VFX shots in a 2,000-theater release?
 8. **Animation Evolution** — By December 31, 2029, will a final U.S. appellate decision hold that training a generative model on unlicensed copyrighted audiovisual works is not fair use?
 
