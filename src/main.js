@@ -50,7 +50,8 @@ document.addEventListener('keydown', (event) => {
 document.addEventListener('pointerdown', (event) => {
   if (menuButton.getAttribute('aria-expanded') === 'true' && !event.target.closest('nav')) {
     setMenu(false);
-    setTimeout(() => menuButton.focus(), 0);
+    const focusableTarget = event.target.closest('a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])');
+    if (!focusableTarget) setTimeout(() => menuButton.focus(), 0);
   }
 });
 window.addEventListener('resize', () => {
@@ -77,7 +78,7 @@ shareButton.addEventListener('click', async () => {
   if (typeof navigator.share === 'function') {
     try {
       await navigator.share(shareData);
-      shareStatus.textContent = 'Share options opened.';
+      shareStatus.textContent = 'Sharing request completed.';
       return;
     } catch (error) {
       if (error?.name === 'AbortError') {

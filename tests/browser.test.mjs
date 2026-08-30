@@ -93,6 +93,9 @@ test('mobile menu manages keyboard, outside click, scroll lock, and focus', asyn
   await page.waitForFunction(() => document.activeElement === document.querySelector('.menu-button'));
   assert.deepEqual(await page.$eval('.menu-button', (el) => [el.getAttribute('aria-expanded'), document.activeElement === el]), ['false', true]);
   await page.click('.menu-button');
+  await page.click('#forecast-yes');
+  assert.deepEqual(await page.$eval('#forecast-yes', (el) => [document.querySelector('.menu-button').getAttribute('aria-expanded'), document.activeElement === el]), ['false', true]);
+  await page.click('.menu-button');
   await page.click('#menu a');
   assert.equal(await page.$eval('.menu-button', (el) => el.getAttribute('aria-expanded')), 'false');
   await page.waitForFunction(() => document.activeElement?.id === 'forecast');
@@ -112,7 +115,7 @@ test('native share receives the canonical forecast payload', async () => {
     text: 'Consider the draft Episode 01 forecast on the future of ad-supported streaming plans.',
     url: 'https://hollywoodevolves.mcpherson.app/',
   });
-  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Share options opened.');
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Sharing request completed.');
   await page.close();
 });
 
