@@ -178,6 +178,30 @@ test('mobile navigation remains visible and the inert Menu control stays hidden 
   await page.close();
 });
 
+test('homepage skip link moves focus to main content', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.keyboard.press('Tab');
+  assert.equal(await page.$eval('.skip', (link) => document.activeElement === link), true);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => location.hash === '#main');
+  assert.equal(await page.evaluate(() => document.activeElement?.id), 'main');
+  await page.close();
+});
+
+test('legal skip links move focus to main content', async () => {
+  for (const path of ['/accessibility.html', '/privacy.html', '/terms.html']) {
+    const page = await newPage();
+    await page.goto(`${origin}${path}`, { waitUntil: 'domcontentloaded' });
+    await page.keyboard.press('Tab');
+    assert.equal(await page.$eval('.skip', (link) => document.activeElement === link), true, path);
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => location.hash === '#main');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'main', path);
+    await page.close();
+  }
+});
+
 test('subject-first cover leads with a confident program entry and simplified instrument', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1440, height: 1000 });
