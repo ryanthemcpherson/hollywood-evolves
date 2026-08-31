@@ -200,6 +200,15 @@ function expandCard(card) {
   if (cue) cue.textContent = 'Context open';
   context.querySelector('[data-card-close]').addEventListener('click', () => collapseCard(card, true));
   expandedCard = card;
+  if (!cardExpansion.matches) {
+    requestAnimationFrame(() => {
+      const root = document.documentElement;
+      const previousScrollBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';
+      window.scrollTo(0, window.scrollY + context.getBoundingClientRect().top - 76);
+      root.style.scrollBehavior = previousScrollBehavior;
+    });
+  }
 }
 
 questionCards.forEach((link) => {
