@@ -558,6 +558,54 @@ test('mobile keeps the swipeable question field and direct private calls visible
   await page.close();
 });
 
+test('mobile question rail controls navigate and report the current card', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const initial = await page.$eval('[data-question-rail-controls]', (controls) => ({
+    hidden: controls.hidden,
+    position: controls.querySelector('#question-position')?.textContent,
+    previousDisabled: controls.querySelector('[data-question-previous]')?.disabled,
+    nextDisabled: controls.querySelector('[data-question-next]')?.disabled,
+  }));
+  assert.deepEqual(initial, { hidden: false, position: 'Question 1 of 8', previousDisabled: true, nextDisabled: false });
+
+  await page.click('[data-question-next]');
+  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 2 of 8');
+  await page.waitForFunction(() => document.querySelector('.question-rail')?.scrollLeft > 0);
+  for (let index = 0; index < 6; index += 1) await page.click('[data-question-next]');
+  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 8 of 8');
+  assert.deepEqual(await page.$eval('[data-question-rail-controls]', (controls) => ({
+    previousDisabled: controls.querySelector('[data-question-previous]').disabled,
+    nextDisabled: controls.querySelector('[data-question-next]').disabled,
+  })), { previousDisabled: false, nextDisabled: true });
+
+  await page.$eval('.question-rail', (rail) => {
+    rail.scrollTo({ left: 0, behavior: 'instant' });
+    rail.dispatchEvent(new Event('scroll'));
+  });
+  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 1 of 8');
+  await page.focus('.motion-card[data-question-id="question-06"] .motion-card-link');
+  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 6 of 8');
+  await page.close();
+});
+
+test('question rail controls stay hidden outside enhanced mobile layouts', async () => {
+  const desktop = await newPage();
+  await desktop.setViewport({ width: 1366, height: 768 });
+  await desktop.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.equal(await desktop.$eval('[data-question-rail-controls]', (controls) => controls.hidden), true);
+  await desktop.close();
+
+  const noScript = await newPage();
+  await noScript.setJavaScriptEnabled(false);
+  await noScript.setViewport({ width: 390, height: 844 });
+  await noScript.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.equal(await noScript.$eval('[data-question-rail-controls]', (controls) => controls.hidden), true);
+  assert.ok(await noScript.$eval('.question-rail', (rail) => rail.scrollWidth > rail.clientWidth));
+  await noScript.close();
+});
+
 test('mobile question tap expands full context vertically without disabling neighboring cards', async () => {
   const page = await newPage();
   await page.setViewport({ width: 390, height: 844 });
@@ -969,7 +1017,7 @@ test('mobile theme cards keep all eight editorial contracts reachable without ho
     rows: season.querySelectorAll('.season-ledger > li').length,
     summaries: season.querySelectorAll('.season-ledger summary').length,
     duplicateField: getComputedStyle(season.querySelector('.question-field')).display,
-  })), { rows: 8, summaries: 7, duplicateField: 'none' });
+  })), { rows: 8, summaries: 7, duplicateField: 'block' });
   const noScriptSummaries = await noScript.$$('.season-ledger summary');
   for (const summary of noScriptSummaries) await summary.click();
   assert.ok(await noScript.$$eval('.season-ledger details', (details) => details.every((disclosure) => disclosure.open && disclosure.querySelector('.episode-frame').getBoundingClientRect().height > 0 && /YES threshold/.test(disclosure.textContent))));
