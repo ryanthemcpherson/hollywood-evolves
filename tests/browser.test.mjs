@@ -282,11 +282,12 @@ test('homepage has one portrait and three explicit subject chapters', async () =
   await page.close();
 });
 
-test('homepage omits public demo data, unavailable destinations, commentary controls, and unpublished ledger rows', async () => {
+test('homepage presents the hero dock, demo ledger, and no commentary controls', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  assert.equal(await page.$$eval('.demo-banner, .hero-dock, .distribution, .platform-card, #commentary-app, #linkedin-login, table.ledger, [data-demo-ledger], .demo-card-aggregate', (nodes) => nodes.length), 0);
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.demoState), undefined);
+  assert.equal(await page.$$eval('.distribution, .platform-card, #commentary-app, #linkedin-login', (nodes) => nodes.length), 0);
+  assert.deepEqual(await page.$$eval('.hero-dock li', (nodes) => nodes.map((node) => node.textContent)), ['Spotify', 'Apple Music', 'YouTube']);
+  assert.deepEqual(await page.$$eval('[data-demo-ledger] tbody td:nth-child(2)', (nodes) => nodes.map((node) => node.textContent.trim())), ['—', '—', '—']);
   await page.close();
 });
 
@@ -682,7 +683,8 @@ async function mobileEditorialMetrics(page) {
 
 test('mobile editions stay within an intentional reading and scroll budget', async () => {
   const page = await newPage();
-  const budgets = { scrollHeight: 7000, viewportLengths: 8.3, mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
+  // Budgets include the hero platform dock and the demo forecast ledger added by demo mode.
+  const budgets = { scrollHeight: 7300, viewportLengths: 8.7, mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
   const preservationFloors = { mainWords: 550, visibleBlocks: 60, paragraphs: 25 };
   const measurements = {};
   for (const width of [320, 375, 390, 430]) {
@@ -793,4 +795,30 @@ test('legal pages reflow, keep 44px targets, and pass axe at mobile and desktop 
     assert.deepEqual(violations, [], `${path} at ${width}px has axe violations`);
     await page.close();
   }
+});
+
+test('demo banner stays hidden when demo mode is off', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => new Promise((resolve) => setTimeout(() => resolve(true), 150)));
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.demoState), undefined);
+  assert.equal(await page.$eval('.demo-banner', (node) => getComputedStyle(node).display), 'none');
+  await page.close();
+});
+
+test('demo-state failure shows an explicit unavailable banner without sample values', async () => {
+  const page = await browser.newPage();
+  await page.setBypassCSP(true);
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    if (request.url().endsWith('/api/demo-state')) request.abort();
+    else if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
+    else request.continue();
+  });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.documentElement.dataset.demoState === 'unavailable', { timeout: 5000 });
+  assert.match(await page.$eval('.demo-banner', (node) => node.textContent), /DEMO DATA UNAVAILABLE/);
+  assert.equal(await page.$$eval('.demo-card-aggregate', (nodes) => nodes.length), 0);
+  assert.equal(await page.$eval('[data-demo-ledger]', (node) => node.hasAttribute('data-demo')), false);
+  await page.close();
 });
