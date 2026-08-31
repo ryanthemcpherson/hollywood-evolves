@@ -1,0 +1,24 @@
+:root {
+  --brand-paper: #f3efe6;
+  --brand-paper-alt: #e5ded1;
+  --brand-ink: #171715;
+  --brand-muted: #625d55;
+  --brand-rule: #aaa398;
+  --brand-accent: #a8342a;
+  --brand-signal: #78a9b5;
+  --brand-white: #faf7f0;
+  --brand-font-sans: "DM Sans", "Helvetica Neue", Arial, sans-serif;
+  --brand-font-serif: "Newsreader", Georgia, serif;
+  --brand-font-mono: "DM Mono", "Courier New", monospace;
+}
+
+.brand-wordmark {
+  display: block;
+  width: 174px;
+  height: auto;
+}
+
+footer .brand-wordmark,
+.poll-header .brand-wordmark {
+  filter: brightness(0) invert(1);
+}

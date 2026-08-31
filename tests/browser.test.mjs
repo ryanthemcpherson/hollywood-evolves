@@ -342,8 +342,8 @@ test('authored focus rings remain two-color on dark forecast, binary proxy, and 
   }
   for (const sample of samples) {
     assert.equal(sample.outlineWidth, '3px');
-    assert.equal(sample.outlineColor, 'rgb(251, 247, 238)');
-    assert.match(sample.boxShadow, /rgb\(21, 22, 21\).*0px 0px 0px 6px/);
+    assert.equal(sample.outlineColor, 'rgb(250, 247, 240)');
+    assert.match(sample.boxShadow, /rgb\(23, 23, 21\).*0px 0px 0px 6px/);
   }
   await page.close();
 });
@@ -555,6 +555,8 @@ test('question-card inspection pauses in place and tracks the pointer without mo
       pointerX: element.style.getPropertyValue('--card-pointer-x'),
       pointerY: element.style.getPropertyValue('--card-pointer-y'),
       markerOpacity: getComputedStyle(element, '::before').opacity,
+      markerRadius: getComputedStyle(element, '::before').borderRadius,
+      edgeMarkerOpacity: getComputedStyle(element, '::after').opacity,
     };
   });
   assert.ok(Math.abs(after.left - before.left) < 1, `card moved ${after.left - before.left}px horizontally on hover`);
@@ -565,6 +567,39 @@ test('question-card inspection pauses in place and tracks the pointer without mo
   assert.match(after.pointerX, /%$/);
   assert.match(after.pointerY, /%$/);
   assert.equal(after.markerOpacity, '1');
+  assert.equal(after.markerRadius, '0px');
+  assert.equal(after.edgeMarkerOpacity, '1');
+  await page.close();
+});
+
+test('every fully visible moving card exposes clickable question, YES, and NO targets', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('.question-rail', (rail) => rail.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const rail = await page.$('.question-rail');
+  const railBox = await rail.boundingBox();
+  await page.mouse.move(railBox.x + 4, railBox.y + 4);
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].every((card) => getComputedStyle(card).animationPlayState === 'paused'));
+  const hitTest = await page.evaluate(() => {
+    const railRect = document.querySelector('.question-rail').getBoundingClientRect();
+    const cards = [...document.querySelectorAll('.motion-card')].filter((card) => {
+      const rect = card.getBoundingClientRect();
+      return rect.left >= railRect.left && rect.right <= railRect.right && rect.top >= railRect.top && rect.bottom <= railRect.bottom;
+    });
+    const misses = [];
+    for (const card of cards) {
+      const targets = [card.querySelector('.motion-card-link'), ...card.querySelectorAll('.card-call label')];
+      targets.forEach((target, index) => {
+        const rect = target.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        if (!card.contains(hit)) misses.push(`${card.dataset.questionId}:${index}`);
+      });
+    }
+    return { visible: cards.length, misses };
+  });
+  assert.ok(hitTest.visible >= 2, `expected at least two fully visible cards, found ${hitTest.visible}`);
+  assert.deepEqual(hitTest.misses, []);
   await page.close();
 });
 
