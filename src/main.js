@@ -1,14 +1,4 @@
-import './commentary.js';
-
 document.documentElement.classList.add('enhanced');
-
-const deepLinkParams = new URLSearchParams(location.search);
-const deepLinkQuestion = deepLinkParams.get('poll');
-if (/^he-[a-z0-9-]+-v\d+$/.test(deepLinkQuestion || '')) {
-  const source = deepLinkParams.get('src');
-  const suffix = source ? `?src=${encodeURIComponent(source)}` : '';
-  location.replace(`/poll/${encodeURIComponent(deepLinkQuestion)}${suffix}`);
-}
 
 const forecastChoices = [...document.querySelectorAll('input[name="private-forecast"]')];
 const reset = document.querySelector('#reset-forecast');
@@ -77,19 +67,16 @@ function createCardContext(card) {
   const context = document.createElement('section');
   const body = document.createElement('div');
   const close = document.createElement('button');
-  const state = document.createElement('p');
   context.className = 'card-context';
   context.id = `${questionId}-context`;
-  context.setAttribute('aria-label', 'Full draft question context');
+  context.setAttribute('aria-label', 'Full question context');
   close.type = 'button';
   close.dataset.cardClose = '';
   close.textContent = '× Close context';
-  state.className = 'card-context-state';
-  state.textContent = 'Draft contract · criteria in review · not open';
-  body.className = 'episode-draft card-context-body';
+  body.className = 'episode-frame card-context-body';
 
   const row = document.querySelector(`#${questionId}`);
-  const source = row?.querySelector('.episode-draft');
+  const source = row?.querySelector('.episode-frame');
   if (source) {
     [...source.children].forEach((child) => body.append(child.cloneNode(true)));
   } else {
@@ -98,14 +85,14 @@ function createCardContext(card) {
     const contract = document.querySelector('#forecast .contract dl');
     if (question) {
       const fullQuestion = document.createElement('p');
-      fullQuestion.className = 'draft-question';
+      fullQuestion.className = 'editorial-question';
       fullQuestion.textContent = question.textContent;
       body.append(fullQuestion);
     }
     if (why) body.append(why.cloneNode(true));
     if (contract) body.append(contract.cloneNode(true));
   }
-  context.append(close, state, body);
+  context.append(close, body);
   return context;
 }
 
@@ -268,7 +255,7 @@ window.addEventListener('resize', () => {
 
 const shareData = {
   title: 'Hollywood Evolves — Episode 01 forecast',
-  text: 'Consider the draft Episode 01 forecast on the future of ad-supported streaming plans.',
+  text: 'Consider the Episode 01 question about the future of ad-supported streaming plans.',
   url: 'https://hollywoodevolves.mcpherson.app/#forecast',
 };
 
@@ -298,11 +285,11 @@ shareButton.addEventListener('click', async () => {
   if (typeof navigator.clipboard?.writeText === 'function') {
     try {
       await navigator.clipboard.writeText(shareData.url);
-      shareStatus.textContent = 'Draft question URL copied.';
+      shareStatus.textContent = 'Question URL copied.';
       return;
     } catch {
       // Continue to the selectable URL when clipboard permission is unavailable.
     }
   }
-  revealShareUrl('Select and copy the draft question URL.');
+  revealShareUrl('Select and copy the question URL.');
 });

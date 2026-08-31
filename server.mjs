@@ -135,8 +135,8 @@ async function handleAuth(req, res, url) {
     return res.end('Method Not Allowed');
   }
   if (!authConfigured || !linkedIn) {
-    res.writeHead(503, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end('LinkedIn commentary login is not configured.');
+    res.writeHead(404, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end('Not Found');
   }
   try {
     if (url.pathname === '/auth/linkedin') {
@@ -175,7 +175,7 @@ async function handleAuth(req, res, url) {
       commentary.upsertLinkedInMember(member);
       const session = commentary.createSession(member.sub);
       persistCommentary();
-      res.writeHead(302, { ...headers, Location: `${publicOrigin}/#contributors`, 'Cache-Control': 'no-store', 'Set-Cookie': [clearFlow, cookie('__Host-he_session', session.token, { maxAge: 7 * 24 * 60 * 60 })] });
+      res.writeHead(302, { ...headers, Location: `${publicOrigin}/`, 'Cache-Control': 'no-store', 'Set-Cookie': [clearFlow, cookie('__Host-he_session', session.token, { maxAge: 7 * 24 * 60 * 60 })] });
       return res.end();
     }
     res.writeHead(404, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -192,6 +192,9 @@ async function handleApi(req, res, url) {
   const commentsMatch = url.pathname.match(/^\/api\/questions\/([a-z0-9-]+)\/comments$/);
   const moderationMatch = url.pathname.match(/^\/api\/admin\/comments\/([A-Za-z0-9_-]+)$/);
   try {
+    if (!authConfigured && req.method === 'GET' && (url.pathname === '/api/session' || commentsMatch)) {
+      return json(res, 404, { error: 'API route not found' });
+    }
     const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
     const cookieMutation = commentsMatch || url.pathname === '/api/session/logout' || url.pathname === '/api/account';
     const adminMutation = url.pathname.startsWith('/api/admin/');
@@ -259,7 +262,7 @@ async function handleApi(req, res, url) {
     }
     if (questionMatch && ['GET', 'HEAD'].includes(req.method)) {
       const question = questions.get(questionMatch[1]);
-      if (!question) return json(res, 404, { error: 'Question not found' });
+      if (!question || question.state !== 'open') return json(res, 404, { error: 'Question not found' });
       const payload = { question, results: audience.publicResults(question.id) };
       if (req.method === 'HEAD') return json(res, 200, {});
       return json(res, 200, payload);
@@ -290,9 +293,10 @@ async function handleApi(req, res, url) {
 
 createServer(async (req, res) => {
   let url;
+  let decodedPathname;
   try {
     url = new URL(req.url, 'http://localhost');
-    decodeURIComponent(url.pathname);
+    decodedPathname = decodeURIComponent(url.pathname);
   } catch {
     res.writeHead(400, {...headers, 'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'});
     return res.end('Bad Request');
@@ -304,13 +308,18 @@ createServer(async (req, res) => {
     return res.end('Method Not Allowed');
   }
   if (url.pathname === '/healthz') { res.writeHead(200, {...headers, 'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); return res.end('{"status":"ok"}'); }
-  const pollMatch = url.pathname.match(/^\/poll\/([a-z0-9-]+)$/);
-  let pathname = url.pathname;
+  if (decodedPathname === '/poll.html') {
+    res.writeHead(404, { ...headers, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+    if (req.method === 'HEAD') return res.end();
+    return createReadStream(join(root, '404.html')).pipe(res);
+  }
+  const pollMatch = decodedPathname.match(/^\/poll\/([a-z0-9-]+)$/);
+  let pathname = decodedPathname;
   if (pollMatch) {
-    if (!questions.has(pollMatch[1])) pathname = '/404.html';
+    if (questions.get(pollMatch[1])?.state !== 'open') pathname = '/404.html';
     else pathname = '/poll.html';
   }
-  let file = normalize(join(root, decodeURIComponent(pathname)));
+  let file = normalize(join(root, pathname));
   const relativePath = relative(root, file);
   if (relativePath === '..' || relativePath.startsWith(`..${process.platform === 'win32' ? '\\' : '/'}`) || isAbsolute(relativePath)) {
     res.writeHead(403, headers);

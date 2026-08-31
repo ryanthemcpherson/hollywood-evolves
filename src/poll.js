@@ -8,7 +8,7 @@ const results = document.querySelector('#poll-results');
 const status = document.querySelector('[data-submit-status]');
 const submit = document.querySelector('.poll-submit');
 const choiceButtons = [...document.querySelectorAll('[data-choice]')];
-const allowedSources = new Set(['site', 'linkedin', 'newsletter', 'qr', 'direct']);
+const allowedSources = new Set(['site', 'newsletter', 'qr', 'direct']);
 const pathId = location.pathname.split('/').filter(Boolean).at(-1);
 const params = new URLSearchParams(location.search);
 const questionId = params.get('poll') || pathId;
@@ -38,9 +38,8 @@ function browserToken() {
 }
 function renderResults(payload) {
   const direct = payload.results.directForecasts;
-  const reactions = payload.results.linkedInReactions;
   document.querySelector('[data-direct-results]').textContent = `Direct forecasts: ${direct.total} total · ${direct.yes} yes · ${direct.no} no${direct.averageConfidence === null ? '' : ` · ${Math.round(direct.averageConfidence)}% average confidence`}.`;
-  document.querySelector('[data-reaction-results]').textContent = `LinkedIn reaction signal: ${reactions.total} total · ${reactions.yes} yes · ${reactions.no} no. Reactions are not probability forecasts.`;
+  document.querySelector('[data-reaction-results]').textContent = '';
   results.hidden = false;
 }
 
@@ -90,15 +89,13 @@ try {
   const payload = await response.json();
   title.textContent = payload.question.prompt;
   dialogTitle.textContent = payload.question.prompt;
-  if (payload.question.state !== 'open') {
-    state.textContent = 'This question is still a draft and is not open for audience responses.';
-  } else {
+  if (payload.question.state === 'open') {
     state.textContent = 'This question is open for audience responses.';
     renderResults(payload);
     const answered = storageGet(localStorage, `he-audience-answered:${questionId}`);
     const skipped = storageGet(sessionStorage, `he-audience-skipped:${questionId}`);
     if (!answered && !skipped) dialog.showModal();
-  }
+  } else throw new Error('Question not found.');
 } catch (error) {
   title.textContent = 'Question unavailable';
   state.textContent = error.message;
