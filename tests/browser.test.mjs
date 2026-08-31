@@ -775,6 +775,55 @@ test('question-card link expands full context, displaces neighbors, and closes w
   await page.close();
 });
 
+test('question context follows browser Back and Forward history', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  await page.$eval(`${selector} .motion-card-link`, (link) => link.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const scrollBeforeOpen = await page.evaluate(() => scrollY);
+  await page.click(`${selector} .motion-card-link`);
+  await page.waitForFunction(() => location.hash === '#question-03', { timeout: 2000 });
+  assert.equal(await page.$eval(selector, (card) => card.classList.contains('is-expanded')), true);
+  assert.ok(Math.abs(await page.evaluate(() => scrollY) - scrollBeforeOpen) <= 1, 'opening context changed the page scroll position');
+
+  await page.evaluate(() => history.back());
+  await page.waitForFunction(() => location.hash === '' && !document.querySelector('.motion-card.is-expanded'));
+  await page.evaluate(() => history.forward());
+  await page.waitForFunction(() => location.hash === '#question-03' && document.querySelector('.motion-card[data-question-id="question-03"]')?.classList.contains('is-expanded'), { timeout: 2000 });
+  await page.close();
+});
+
+test('direct question fragments restore context and close in place', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(`${origin}/#question-05`, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-05"]';
+  await page.waitForFunction(() => document.querySelector('.motion-card[data-question-id="question-05"]')?.classList.contains('is-expanded'), { timeout: 2000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => location.hash === '' && !document.querySelector('.motion-card.is-expanded'));
+  assert.equal(await page.evaluate(() => location.pathname), '/');
+  assert.equal(await page.$eval(`${selector} .motion-card-link`, (link) => document.activeElement === link), true);
+
+  await page.goto(`${origin}/#host`, { waitUntil: 'domcontentloaded' });
+  assert.equal(await page.evaluate(() => location.hash), '#host');
+  assert.equal(await page.$('.motion-card.is-expanded'), null);
+  await page.close();
+});
+
+test('question context close button removes its history entry and restores trigger focus', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  await page.click(`${selector} .motion-card-link`);
+  await page.waitForFunction(() => location.hash === '#question-03', { timeout: 2000 });
+  await page.click(`${selector} [data-card-close]`);
+  await page.waitForFunction(() => location.hash === '' && !document.querySelector('.motion-card.is-expanded'));
+  assert.equal(await page.$eval(`${selector} .motion-card-link`, (link) => document.activeElement === link), true);
+  await page.close();
+});
+
 test('closing full context restarts unfocused card movement while preserving trigger focus', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1366, height: 768 });
