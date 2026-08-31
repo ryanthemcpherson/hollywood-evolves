@@ -1,3 +1,5 @@
+import './commentary.js';
+
 document.documentElement.classList.add('enhanced');
 
 const deepLinkParams = new URLSearchParams(location.search);

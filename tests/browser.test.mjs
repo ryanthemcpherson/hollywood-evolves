@@ -282,6 +282,35 @@ test('homepage has one portrait and three explicit subject chapters', async () =
   await page.close();
 });
 
+test('commentary panel is truthful and non-soliciting while LinkedIn login is unconfigured', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => /not active/i.test(document.querySelector('#commentary-status')?.textContent || ''));
+  const panel = await page.$eval('#commentary-app', (element) => ({
+    questionId: element.dataset.questionId,
+    status: element.querySelector('#commentary-status')?.textContent.trim(),
+    loginHidden: element.querySelector('#linkedin-login')?.hidden,
+    formHidden: element.querySelector('#commentary-form')?.hidden,
+    consent: {
+      required: element.querySelector('#commentary-consent')?.required,
+      checked: element.querySelector('#commentary-consent')?.checked,
+    },
+    deleteAccount: {
+      type: element.querySelector('#commentary-delete-account')?.type,
+      text: element.querySelector('#commentary-delete-account')?.textContent.trim(),
+    },
+    comments: element.querySelectorAll('#published-commentary li:not(.empty-commentary)').length,
+  }));
+  assert.equal(panel.questionId, 'he-episode-01-customer-evolution-v1');
+  assert.match(panel.status, /not active in this preview/i);
+  assert.equal(panel.loginHidden, true);
+  assert.equal(panel.formHidden, true);
+  assert.deepEqual(panel.consent, { required: true, checked: false });
+  assert.deepEqual(panel.deleteAccount, { type: 'button', text: 'Delete account and submissions' });
+  assert.equal(panel.comments, 0);
+  await page.close();
+});
+
 test('forecast ledger is a native table with a screen-reader caption and scoped headers', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
