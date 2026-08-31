@@ -84,13 +84,15 @@ Use the CSS custom properties in `/brand/brand.css`; do not retype these values 
 
 ## Typography
 
-Newsreader carries editorial display copy. DM Sans carries body and interface copy. DM Mono is reserved for evidence labels, statuses, and compact metadata. System fallbacks are required so the site remains readable if hosted fonts fail.
+Newsreader carries editorial display copy. DM Sans carries body and interface copy. DM Mono is reserved for evidence labels, statuses, and compact metadata. These faces are served locally from `/fonts/`; system fallbacks are required so the site remains readable if a local font fails.
 
 Headlines use sentence case. Interface labels may use uppercase with restrained tracking. Avoid novelty fonts, faux typewriter styling, and all-caps body copy.
 
+Meaningful interface labels, controls, navigation, statuses, and metadata must render at 11px or larger. Body and explanatory copy must render at 13px or larger. Smaller labels are permitted only inside decorative instrument geometry that is hidden from assistive technology.
+
 ## Layout
 
-Use a twelve-column editorial grid on wide screens and a single reading column on narrow screens. Composition is square-edged and ruled rather than card-heavy. Space should separate ideas before color or decoration does.
+Use a twelve-column editorial grid on wide screens and a single reading column on narrow screens. Composition is square-edged and ruled rather than card-heavy. Space should separate ideas before color or decoration does. Page-level overflow is prohibited at 280, 300, 312, 320, 375, 390, and 430 CSS pixels; responsible components must reflow instead of relying on document clipping.
 
 ## Shapes
 
