@@ -96,18 +96,13 @@ test('methods other than GET and HEAD are rejected', async (t) => {
   assert.equal(response.headers.allow, 'GET, HEAD');
 });
 
-test('draft question API publishes metadata and empty source-separated aggregates only', async (t) => {
+test('draft question API is hidden from public GET and HEAD requests', async (t) => {
   const { port } = await startServer(t);
-  const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1');
-  assert.equal(response.status, 200);
-  assert.equal(response.headers['cache-control'], 'no-store');
-  const payload = JSON.parse(response.body);
-  assert.equal(payload.question.id, 'he-episode-01-customer-evolution-v1');
-  assert.equal(payload.question.state, 'draft');
-  assert.equal(payload.question.opensAt, null);
-  assert.equal(payload.results.directForecasts.total, 0);
-  assert.equal(payload.results.linkedInReactions.total, 0);
-  assert.doesNotMatch(response.body, /browserHash|reactionHash|idempotencyHash/);
+  for (const method of ['GET', 'HEAD']) {
+    const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1', method);
+    assert.equal(response.status, 404, method);
+    assert.equal(response.headers['cache-control'], 'no-store', method);
+  }
 });
 
 test('draft question rejects submissions and LinkedIn imports require an admin token', async (t) => {
@@ -127,11 +122,16 @@ test('draft question rejects submissions and LinkedIn imports require an admin t
   assert.equal(imported.status, 401);
 });
 
-test('direct poll route resolves only immutable configured question IDs', async (t) => {
+test('direct poll route hides configured questions until they open', async (t) => {
   const { port } = await startServer(t);
   const poll = await get(port, '/poll/he-episode-01-customer-evolution-v1?src=linkedin');
-  assert.equal(poll.status, 200);
-  assert.match(poll.body, /Audience signal · Hollywood Evolves/);
+  assert.equal(poll.status, 404);
+  assert.match(poll.body, /Page not found/i);
+  for (const path of ['/poll.html', '/poll%2ehtml', '/%70oll.html', '/po%6cl.html', '/poll%252ehtml', '/%2570oll.html', '/po%256cl.html']) {
+    for (const method of ['GET', 'HEAD']) {
+      assert.equal((await get(port, `${path}?poll=he-episode-01-customer-evolution-v1&src=newsletter`, method)).status, 404, `${method} ${path}`);
+    }
+  }
   assert.equal((await get(port, '/poll/not-a-question')).status, 404);
 });
 
@@ -194,19 +194,17 @@ test('security headers remain on HTML and asset responses', async (t) => {
   }
 });
 
-test('commentary API is fail-closed when LinkedIn and moderation configuration are absent', async (t) => {
+test('unavailable public commentary routes are hidden when configuration is absent', async (t) => {
   const { port } = await startServer(t);
   const session = await get(port, '/api/session');
-  assert.equal(session.status, 200);
-  assert.deepEqual(JSON.parse(session.body), { authenticated: false, commentaryEnabled: false });
+  assert.equal(session.status, 404);
 
   const login = await get(port, '/auth/linkedin');
-  assert.equal(login.status, 503);
-  assert.match(login.body, /not configured/i);
+  assert.equal(login.status, 404);
+  assert.equal(login.body, 'Not Found');
 
   const comments = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments');
-  assert.equal(comments.status, 200);
-  assert.deepEqual(JSON.parse(comments.body), { comments: [] });
+  assert.equal(comments.status, 404);
 
   const submit = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), { 'content-type': 'application/json', origin: 'https://hollywoodevolves.mcpherson.app' });
   assert.equal(submit.status, 401);
@@ -237,9 +235,9 @@ test('commentary activation requires moderation credentials and an explicit pers
   };
   const { port } = await startServer(t, incomplete);
   const session = await get(port, '/api/session');
-  assert.deepEqual(JSON.parse(session.body), { authenticated: false, commentaryEnabled: false });
+  assert.equal(session.status, 404);
   const login = await get(port, '/auth/linkedin');
-  assert.equal(login.status, 503);
+  assert.equal(login.status, 404);
 
   const { port: mismatchedPort } = await startServer(t, {
     ...incomplete,
@@ -250,7 +248,13 @@ test('commentary activation requires moderation credentials and an explicit pers
     LINKEDIN_REDIRECT_URI: 'https://attacker.example/auth/linkedin/callback',
   });
   const mismatchedSession = await get(mismatchedPort, '/api/session');
-  assert.deepEqual(JSON.parse(mismatchedSession.body), { authenticated: false, commentaryEnabled: false });
+  assert.equal(mismatchedSession.status, 404);
+});
+
+test('successful configured authentication redirects to the homepage root', async () => {
+  const source = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
+  assert.match(source, /Location: `\$\{publicOrigin\}\/`/);
+  assert.doesNotMatch(source, /#contributors/);
 });
 
 test('authenticated commentary stays pending until a configured editor approves and verifies it', async (t) => {
