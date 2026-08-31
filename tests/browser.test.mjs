@@ -483,6 +483,75 @@ test('eight truthful motion cards link to stable native question details and off
   await reduced.close();
 });
 
+test('mobile keeps the swipeable question field and direct private calls visible', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => localStorage.removeItem('he-private-question-calls'));
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const layout = await page.evaluate(() => {
+    const field = document.querySelector('.question-field');
+    const rail = document.querySelector('.question-rail');
+    const cards = [...document.querySelectorAll('.motion-card')];
+    const targets = [...document.querySelectorAll('.card-call label')];
+    return {
+      fieldDisplay: getComputedStyle(field).display,
+      fieldWidth: field.getBoundingClientRect().width,
+      railScrollable: rail.scrollWidth > rail.clientWidth,
+      cardWidths: cards.map((card) => card.getBoundingClientRect().width),
+      targets: targets.map((target) => target.getBoundingClientRect().height),
+      duplicateLedgerDisplay: getComputedStyle(document.querySelector('.season-ledger')).display,
+    };
+  });
+  assert.notEqual(layout.fieldDisplay, 'none');
+  assert.ok(layout.fieldWidth > 300 && layout.fieldWidth <= 390);
+  assert.equal(layout.railScrollable, true);
+  assert.ok(layout.cardWidths.every((width) => width >= 250 && width < 390));
+  assert.ok(layout.targets.every((height) => height >= 44));
+  assert.equal(layout.duplicateLedgerDisplay, 'none');
+  await page.click('.motion-card[data-question-id="question-01"] .card-call label:first-of-type');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('he-private-question-calls'))), { 'question-01': 'yes' });
+  await page.close();
+});
+
+test('mobile question tap expands full context vertically without disabling neighboring cards', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  const before = await page.$eval(selector, (card) => ({
+    width: card.getBoundingClientRect().width,
+    height: card.getBoundingClientRect().height,
+  }));
+  await page.focus(`${selector} .motion-card-link`);
+  await page.keyboard.press('Enter');
+  const expanded = await page.$eval(selector, (card) => {
+    const context = card.querySelector('.card-context');
+    const neighbors = [...card.parentElement.querySelectorAll('.motion-card:not(.is-expanded)')];
+    const rect = card.getBoundingClientRect();
+    return {
+      expanded: card.classList.contains('is-expanded'),
+      ariaExpanded: card.querySelector('.motion-card-link').getAttribute('aria-expanded'),
+      width: rect.width,
+      height: rect.height,
+      context: context?.textContent.replace(/\s+/g, ' ').trim(),
+      neighborShifts: neighbors.map((neighbor) => neighbor.style.getPropertyValue('--card-shift')),
+      neighborsInteractive: neighbors.every((neighbor) => getComputedStyle(neighbor).pointerEvents === 'auto'),
+    };
+  });
+  assert.equal(expanded.expanded, true);
+  assert.equal(expanded.ariaExpanded, 'true');
+  assert.ok(expanded.width <= before.width + 1, `mobile card widened from ${before.width}px to ${expanded.width}px`);
+  assert.ok(expanded.height > before.height + 150, `mobile card did not expand vertically: ${before.height}px to ${expanded.height}px`);
+  assert.match(expanded.context, /Why it matters:/);
+  assert.match(expanded.context, /YES threshold/);
+  assert.match(expanded.context, /Resolve by/);
+  assert.ok(expanded.neighborShifts.every((shift) => shift === ''));
+  assert.equal(expanded.neighborsInteractive, true);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.$eval(selector, (card) => card.classList.contains('is-expanded')), false);
+  await page.close();
+});
+
 test('question-card inspection pauses in place and tracks the pointer without moving the target', async () => {
   const page = await newPage();
   await page.evaluateOnNewDocument(() => {
@@ -677,10 +746,13 @@ async function mobileEditorialMetrics(page) {
     const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
     const contentBlocks = [...document.querySelectorAll('main > section, main h1, main h2, main h3, main p, main li')].filter(visible);
     const scrollHeight = document.documentElement.scrollHeight;
+    const cardWords = [...document.querySelectorAll('.motion-card')].map((card) => words(card.innerText));
+    const horizontalWords = cardWords.slice(1).reduce((total, count) => total + count, 0);
     return {
       scrollHeight,
       viewportLengths: Number((scrollHeight / innerHeight).toFixed(1)),
-      mainWords: words(document.querySelector('main').innerText),
+      // Offscreen snap cards add breadth, not vertical reading load. Count the visible lead card only.
+      mainWords: words(document.querySelector('main').innerText) - horizontalWords,
       visibleBlocks: contentBlocks.length,
       paragraphs: paragraphs.length,
       longParagraphs: paragraphs.filter((paragraph) => paragraph.textContent.trim().length >= 160).length,
@@ -710,29 +782,30 @@ test('mobile editions stay within an intentional reading and scroll budget', asy
   await page.close();
 });
 
-test('mobile theme disclosure keeps all eight editorial contracts reachable without horizontal trapping', async () => {
+test('mobile theme cards keep all eight editorial contracts reachable without horizontal page trapping', async () => {
   const page = await newPage();
   await page.setViewport({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.doesNotMatch(await page.$eval('.season-header', (header) => header.textContent), /open any theme/i);
-  const summaries = await page.$$('.season-ledger summary');
-  for (const summary of summaries) {
-    await summary.focus();
-    await summary.press('Enter');
+  const contracts = [];
+  for (const link of await page.$$('.motion-card-link')) {
+    await link.focus();
+    await link.press('Enter');
+    contracts.push(await link.evaluate((questionLink) => {
+      const card = questionLink.closest('.motion-card');
+      const context = card.querySelector('.card-context');
+      return {
+        expanded: card.classList.contains('is-expanded'),
+        question: context?.querySelector('.editorial-question')?.textContent.trim(),
+        terms: [...context?.querySelectorAll('dt') || []].map((term) => term.textContent.trim()),
+        rendered: context?.getBoundingClientRect().height > 0,
+      };
+    }));
+    await page.keyboard.press('Escape');
   }
-  const contracts = await page.$$eval('.season-ledger > li', (rows) => rows.map((row) => {
-    const disclosure = row.querySelector('details');
-    const terms = [...row.querySelectorAll('dt')].map((term) => term.textContent.trim());
-    return {
-      title: row.querySelector('h3, .episode-title')?.textContent.trim(),
-      question: row.querySelector('.editorial-question, h3')?.textContent.trim(),
-      terms,
-      reachable: !disclosure || disclosure.open,
-      rendered: !disclosure || row.querySelector('.episode-frame').getBoundingClientRect().height > 0,
-    };
-  }));
   assert.equal(contracts.length, 8);
-  assert.ok(contracts.every(({ title, question, reachable, rendered }) => title && question && reachable && rendered));
+  assert.ok(contracts.every(({ expanded, question, rendered }) => expanded && question && rendered));
+  assert.ok(['YES threshold', 'Deadline', 'Evidence'].every((term) => contracts[0].terms.includes(term)));
   assert.ok(contracts.slice(1).every(({ terms }) => ['YES threshold', 'Resolve by', 'Evidence / resolver'].every((term) => terms.includes(term))));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth <= 1));
   await page.close();
