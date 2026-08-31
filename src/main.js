@@ -181,12 +181,14 @@ function collapseCard(card = expandedCard, returnFocus = false) {
 function expandCard(card) {
   if (expandedCard && expandedCard !== card) collapseCard(expandedCard);
   const rail = card.parentElement;
-  const railCenter = rail.getBoundingClientRect().left + rail.getBoundingClientRect().width / 2;
-  motionCards.forEach((neighbor) => {
-    if (neighbor === card) return;
-    const rect = neighbor.getBoundingClientRect();
-    neighbor.style.setProperty('--card-shift', rect.left + rect.width / 2 < railCenter ? '-420px' : '420px');
-  });
+  if (cardExpansion.matches) {
+    const railCenter = rail.getBoundingClientRect().left + rail.getBoundingClientRect().width / 2;
+    motionCards.forEach((neighbor) => {
+      if (neighbor === card) return;
+      const rect = neighbor.getBoundingClientRect();
+      neighbor.style.setProperty('--card-shift', rect.left + rect.width / 2 < railCenter ? '-420px' : '420px');
+    });
+  }
   const context = createCardContext(card);
   const link = card.querySelector('.motion-card-link');
   rail.classList.add('has-expanded');
@@ -212,7 +214,6 @@ questionCards.forEach((link) => {
     const row = document.querySelector(link.hash);
     const disclosure = row?.querySelector('details');
     if (disclosure) disclosure.open = true;
-    if (!cardExpansion.matches) return;
     event.preventDefault();
     if (card.classList.contains('is-expanded')) collapseCard(card, true);
     else expandCard(card);
@@ -221,8 +222,8 @@ questionCards.forEach((link) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && expandedCard) collapseCard(expandedCard, true);
 });
-cardExpansion.addEventListener?.('change', (event) => {
-  if (!event.matches) collapseCard();
+cardExpansion.addEventListener?.('change', () => {
+  collapseCard();
 });
 
 motionCards.forEach((card) => {
