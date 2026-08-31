@@ -1,0 +1,27 @@
+{
+  "name": "Hollywood Evolves",
+  "shortName": "HE",
+  "descriptor": "A podcast and public forecast ledger",
+  "description": "A podcast and public forecast ledger about the technologies changing Hollywood.",
+  "canonicalUrl": "https://hollywoodevolves.mcpherson.app",
+  "colors": {
+    "paper": "#f3efe6",
+    "paperAlt": "#e5ded1",
+    "ink": "#171715",
+    "muted": "#625d55",
+    "rule": "#aaa398",
+    "accent": "#a8342a",
+    "signal": "#78a9b5",
+    "white": "#faf7f0"
+  },
+  "fonts": {
+    "sans": "DM Sans",
+    "serif": "Newsreader",
+    "mono": "DM Mono"
+  },
+  "assets": {
+    "wordmark": "/brand/wordmark.svg",
+    "monogram": "/brand/monogram.svg",
+    "socialCard": "/brand/social-card.png"
+  }
+}
