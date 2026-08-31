@@ -115,12 +115,91 @@ test('subject-first cover leads with a coded forecast instrument and no host por
   assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↓']);
   assert.match(cover.timing, /November 2026/);
   assert.match(cover.timing, /January 2027/);
-  assert.match(cover.instrument, /STATE: UNRESOLVED/);
-  assert.match(cover.instrument, /MEDIA PIPELINE/);
-  assert.match(cover.instrument, /AUDIO/);
-  assert.match(cover.instrument, /DISTRIBUTION/);
+  assert.match(cover.instrument, /UNRESOLVED/);
+  assert.match(cover.instrument, /EVIDENCE/);
+  assert.match(cover.instrument, /VIEWS/);
+  assert.match(cover.instrument, /PUBLIC LEDGER/);
   assert.equal(cover.svgCount, 2);
   await page.close();
+});
+
+test('forecast instrument tabs expose truthful states and support keyboard navigation', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const initial = await page.$eval('.instrument', (instrument) => ({
+    state: instrument.dataset.instrumentState,
+    selected: instrument.querySelector('[role="tab"][aria-selected="true"]')?.textContent.trim(),
+    tabs: [...instrument.querySelectorAll('[role="tab"]')].map((tab) => ({ controls: tab.getAttribute('aria-controls'), tabindex: tab.tabIndex, width: tab.getBoundingClientRect().width, height: tab.getBoundingClientRect().height })),
+    live: instrument.querySelector('.instrument-readout')?.getAttribute('aria-live'),
+    visible: [...instrument.querySelectorAll('[role="tabpanel"]:not([hidden])')].map((panel) => panel.textContent.replace(/\s+/g, ' ').trim()),
+    text: instrument.textContent.replace(/\s+/g, ' '),
+  }));
+  assert.equal(initial.state, 'capture');
+  assert.equal(initial.selected, '01 Capture');
+  assert.equal(initial.live, 'polite');
+  assert.ok(initial.tabs.every(({ controls, width, height }) => controls && width >= 44 && height >= 44));
+  assert.deepEqual(initial.tabs.map(({ tabindex }) => tabindex), [0, -1, -1]);
+  assert.equal(initial.visible.length, 1);
+  assert.match(initial.visible[0], /public reporting published before the agreed cutoff/);
+  for (const copy of [/Guest, Community, and Research System views remain separately labeled/, /No probability is currently published/, /stays unresolved until the agreed evidence and threshold/, /PENDING means the resolution conditions have not been met/]) assert.match(initial.text, copy);
+
+  await page.focus('#instrument-tab-capture');
+  await page.keyboard.press('ArrowRight');
+  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['forecast', 'instrument-tab-forecast', 'instrument-panel-forecast']);
+  await page.keyboard.press('End');
+  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['resolve', 'instrument-tab-resolve', 'instrument-panel-resolve']);
+  await page.focus('#instrument-tab-capture');
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'capture');
+  await page.click('#instrument-tab-resolve');
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'resolve');
+  assert.equal(await page.$eval('.instrument-foot a', (link) => link.getAttribute('href')), '#forecast');
+  await page.close();
+});
+
+test('instrument core explanation survives without JavaScript', async () => {
+  const page = await newPage();
+  await page.setJavaScriptEnabled(false);
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const panels = await page.$$eval('.instrument-readout [role="tabpanel"]', (nodes) => nodes.map((panel) => ({ hidden: panel.hidden, text: panel.textContent.replace(/\s+/g, ' ').trim(), height: panel.getBoundingClientRect().height })));
+  assert.equal(panels.length, 3);
+  assert.ok(panels.every(({ hidden, height }) => !hidden && height > 0));
+  assert.match(panels.map(({ text }) => text).join(' '), /No probability is currently published/);
+  await page.close();
+});
+
+test('instrument geometry is contained and pointer perspective resets', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => query === '(hover: hover) and (pointer: fine)' ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent() { return true; } } : nativeMatchMedia(query);
+  });
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const geometry = await page.$eval('.instrument', (instrument) => {
+    const stage = instrument.querySelector('.instrument-stage').getBoundingClientRect();
+    const gate = instrument.querySelector('.forecast-gate').getBoundingClientRect();
+    const path = instrument.querySelector('.production-path').getBoundingClientRect();
+    const controls = instrument.querySelector('.instrument-controls').getBoundingClientRect();
+    return { gateInside: gate.left >= stage.left && gate.right <= stage.right && gate.top >= stage.top && gate.bottom <= stage.bottom, gateTextCentered: getComputedStyle(instrument.querySelector('.forecast-gate')).textAlign, pathAboveControls: path.bottom <= controls.top, instrumentBottom: instrument.getBoundingClientRect().bottom };
+  });
+  assert.deepEqual(geometry, { ...geometry, gateInside: true, gateTextCentered: 'center', pathAboveControls: true });
+  assert.ok(geometry.instrumentBottom <= 768, `instrument extends below viewport to ${geometry.instrumentBottom}px`);
+  const stage = await page.$('.instrument-stage');
+  const box = await stage.boundingBox();
+  await page.mouse.move(box.x + box.width - 4, box.y + 8);
+  assert.notEqual(await page.$eval('.instrument-stage', (el) => el.style.getPropertyValue('--pointer-x')), '');
+  await page.mouse.move(1, 1);
+  assert.deepEqual(await page.$eval('.instrument-stage', (el) => [el.style.getPropertyValue('--pointer-x'), el.style.getPropertyValue('--pointer-y')]), ['', '']);
+  await page.close();
+
+  const reduced = await newPage();
+  await reduced.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await reduced.goto(origin, { waitUntil: 'domcontentloaded' });
+  const reducedBox = await (await reduced.$('.instrument-stage')).boundingBox();
+  await reduced.mouse.move(reducedBox.x + reducedBox.width - 4, reducedBox.y + 8);
+  assert.deepEqual(await reduced.$eval('.instrument-stage', (el) => ({ x: el.style.getPropertyValue('--pointer-x'), transform: getComputedStyle(el).transform, transition: getComputedStyle(el).transitionDuration })), { x: '', transform: 'none', transition: '0s' });
+  assert.ok((await reduced.$$eval('.lens, .signal-ribbon, .forecast-gate strong', (nodes) => nodes.map((el) => getComputedStyle(el).animationName))).every((name) => name === 'none'));
+  await reduced.close();
 });
 
 test('homepage has one portrait and three explicit subject chapters', async () => {
@@ -267,6 +346,50 @@ test('season ledger uses native disclosure rows and honest draft contracts', asy
   assert.match(ledger.text, /final U\.S\. appellate decision/);
   for (const forbidden of ['probability', 'guest', 'votes', 'trends', 'comments', 'aired']) assert.doesNotMatch(ledger.text.toLowerCase(), new RegExp(forbidden));
   await page.close();
+});
+
+test('past and present share one responsive split chapter with a forecast jump', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const desktop = await page.evaluate(() => {
+    const past = document.querySelector('#past').getBoundingClientRect();
+    const present = document.querySelector('#present').getBoundingClientRect();
+    const wrapper = document.querySelector('.evolution-split');
+    const jump = wrapper.querySelector('a[href="#forecast"]');
+    return { siblings: past.parentElement === present.parentElement, sideBySide: Math.abs(past.top - present.top) < 2 && past.right <= present.left + 2, jump: Boolean(jump), jumpHeight: jump.getBoundingClientRect().height };
+  });
+  assert.deepEqual(desktop, { siblings: true, sideBySide: true, jump: true, jumpHeight: 86 });
+  await page.setViewport({ width: 390, height: 844 });
+  const mobile = await page.evaluate(() => {
+    const past = document.querySelector('#past').getBoundingClientRect();
+    const present = document.querySelector('#present').getBoundingClientRect();
+    return present.top >= past.bottom - 2;
+  });
+  assert.equal(mobile, true);
+  await page.focus('.forecast-jump');
+  assert.equal(await page.$eval('.forecast-jump', (el) => document.activeElement === el), true);
+  await page.close();
+});
+
+test('eight truthful motion cards link to stable native question details', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const cards = await page.$$eval('.motion-card', (nodes) => nodes.map((card) => ({ href: card.hash, target: Boolean(document.querySelector(card.hash)), text: card.textContent.replace(/\s+/g, ' ').trim() })));
+  assert.equal(cards.length, 8);
+  assert.equal(new Set(cards.map(({ href }) => href)).size, 8);
+  assert.ok(cards.every(({ target, text }) => target && /YES\s+—/.test(text) && /NO\s+—/.test(text) && /criteria in review/.test(text) && /not open/.test(text)));
+  await page.$eval('.motion-card[href="#question-02"]', (card) => card.click());
+  assert.equal(await page.$eval('#question-02 details', (el) => el.open), true);
+  const animation = await page.$eval('.motion-card', (el) => ({ running: getComputedStyle(el).animationName !== 'none', paused: getComputedStyle(el.closest('.question-rail')).getPropertyValue('--unused') }));
+  assert.equal(animation.running, true);
+  await page.close();
+
+  const reduced = await newPage();
+  await reduced.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await reduced.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.ok((await reduced.$$eval('.motion-card', (nodes) => nodes.map((el) => getComputedStyle(el).animationName))).every((name) => name === 'none'));
+  await reduced.close();
 });
 
 for (const [width, height] of [[320, 844], [390, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {

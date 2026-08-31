@@ -48,15 +48,15 @@ Before real data exists, show **Preview — not yet open**. Never manufacture ai
 
 ### 3. Episode format
 
-A single horizontal sequence:
+A single combined split chapter on desktop, stacked on mobile:
 
 `THE PAST → THE PRESENT → THE FORECAST`
 
-One sentence per act. No generic feature-card grid.
+One concise subject statement and controlled diagram per historical act, followed by an explicit jump to the forecast. No generic feature-card grid.
 
 ### 4. Season one
 
-Eight compact rows with number, theme, question status, and guest status. Do not write eight long AI summaries on the homepage.
+Lead with a controlled 3D discovery field for the eight approved questions, with unpublished `YES — / NO —` states and stable links to their contracts. Follow with eight compact rows containing number, theme, and honest question status. Do not write eight long AI summaries on the homepage.
 
 ### 5. Why Ian / About the host
 
