@@ -182,10 +182,10 @@ test('subject-first cover leads with a coded forecast instrument and no host por
   assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↓']);
   assert.match(cover.timing, /November 2026/);
   assert.match(cover.timing, /January 2027/);
-  assert.match(cover.instrument, /UNRESOLVED/);
+  assert.match(cover.instrument, /NOT OPEN/);
   assert.match(cover.instrument, /EVIDENCE/);
-  assert.match(cover.instrument, /VIEWS/);
-  assert.match(cover.instrument, /PUBLIC LEDGER/);
+  assert.match(cover.instrument, /THREE VIEWS/);
+  assert.match(cover.instrument, /OUTCOME/);
   assert.equal(cover.svgCount, 2);
   await page.close();
 });
@@ -201,24 +201,25 @@ test('forecast instrument tabs expose truthful states and support keyboard navig
     visible: [...instrument.querySelectorAll('[role="tabpanel"]:not([hidden])')].map((panel) => panel.textContent.replace(/\s+/g, ' ').trim()),
     text: instrument.textContent.replace(/\s+/g, ' '),
   }));
-  assert.equal(initial.state, 'capture');
-  assert.equal(initial.selected, '01 Capture');
+  assert.equal(initial.state, 'evidence');
+  assert.equal(initial.selected, '01 Evidence');
   assert.equal(initial.live, 'polite');
   assert.ok(initial.tabs.every(({ controls, width, height }) => controls && width >= 44 && height >= 44));
   assert.deepEqual(initial.tabs.map(({ tabindex }) => tabindex), [0, -1, -1]);
   assert.equal(initial.visible.length, 1);
-  assert.match(initial.visible[0], /public reporting published before the agreed cutoff/);
-  for (const copy of [/Guest, Community, and Research System views remain separately labeled/, /No probability is currently published/, /stays unresolved until the agreed evidence and threshold/, /PENDING means the resolution conditions have not been met/]) assert.match(initial.text, copy);
+  assert.match(initial.visible[0], /Public reporting published before the agreed cutoff/);
+  for (const copy of [/Guest, Community, and Research System will remain separately labeled/, /No probability is currently published/, /agreed threshold and eligible evidence will eventually resolve/, /Current status: not open · unresolved/]) assert.match(initial.text, copy);
+  for (const jargon of [/UNRESOLVED GATE/i, /PUBLIC LEDGER/i, /01 Capture/i, /02 Forecast/i, /03 Resolve/i]) assert.doesNotMatch(initial.text, jargon);
 
-  await page.focus('#instrument-tab-capture');
+  await page.focus('#instrument-tab-evidence');
   await page.keyboard.press('ArrowRight');
-  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['forecast', 'instrument-tab-forecast', 'instrument-panel-forecast']);
+  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['views', 'instrument-tab-views', 'instrument-panel-views']);
   await page.keyboard.press('End');
-  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['resolve', 'instrument-tab-resolve', 'instrument-panel-resolve']);
-  await page.focus('#instrument-tab-capture');
-  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'capture');
-  await page.click('#instrument-tab-resolve');
-  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'resolve');
+  assert.deepEqual(await page.$eval('.instrument', (instrument) => [instrument.dataset.instrumentState, document.activeElement?.id, instrument.querySelector('[role="tabpanel"]:not([hidden])')?.id]), ['outcome', 'instrument-tab-outcome', 'instrument-panel-outcome']);
+  await page.focus('#instrument-tab-evidence');
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'evidence');
+  await page.click('#instrument-tab-outcome');
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'outcome');
   assert.equal(await page.$eval('.instrument-foot a', (link) => link.getAttribute('href')), '#forecast');
   await page.close();
 });
@@ -230,7 +231,23 @@ test('instrument core explanation survives without JavaScript', async () => {
   const panels = await page.$$eval('.instrument-readout [role="tabpanel"]', (nodes) => nodes.map((panel) => ({ hidden: panel.hidden, text: panel.textContent.replace(/\s+/g, ' ').trim(), height: panel.getBoundingClientRect().height })));
   assert.equal(panels.length, 3);
   assert.ok(panels.every(({ hidden, height }) => !hidden && height > 0));
-  assert.match(panels.map(({ text }) => text).join(' '), /No probability is currently published/);
+  const explanation = panels.map(({ text }) => text).join(' ');
+  assert.match(explanation, /Public reporting published before the agreed cutoff/);
+  assert.match(explanation, /Guest, Community, and Research System/);
+  assert.match(explanation, /currently not open and unresolved/);
+  await page.close();
+});
+
+test('future platform destinations are exactly three honest non-link placeholders', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const distribution = await page.$eval('.distribution', (section) => ({
+    intro: section.querySelector('.distribution-intro')?.textContent.replace(/\s+/g, ' ').trim(),
+    cards: [...section.querySelectorAll('.platform-card')].map((card) => ({ platform: card.dataset.platform, url: card.dataset.url, tag: card.tagName, hrefs: card.querySelectorAll('[href]').length, text: card.textContent.replace(/\s+/g, ' ').trim() })),
+  }));
+  assert.match(distribution.intro, /Links will appear when Episode 01 publishes in January 2027/);
+  assert.deepEqual(distribution.cards.map(({ platform }) => platform), ['Spotify', 'Apple Music', 'YouTube']);
+  assert.ok(distribution.cards.every(({ url, tag, hrefs, text }) => url === 'pending' && tag === 'ARTICLE' && hrefs === 0 && /Coming January 2027/.test(text) && /Link pending/.test(text)));
   await page.close();
 });
 
@@ -623,9 +640,13 @@ for (const [width, height] of [[320, 844], [390, 844], [768, 900], [1366, 768], 
   assert.ok(overflow <= 1, `horizontal overflow is ${overflow}px`);
   const aligned = await page.evaluate(() => {
     const lefts = [...document.querySelectorAll('.site-header .grid, main > section > .grid, footer > .grid')].map((el) => Math.round(el.getBoundingClientRect().left));
-    return { lefts, heroBottom: Math.round(document.querySelector('.hero').getBoundingClientRect().bottom) };
+    const phrase = document.querySelector('.operating-system');
+    const phraseRect = phrase.getBoundingClientRect();
+    return { lefts, heroBottom: Math.round(document.querySelector('.hero').getBoundingClientRect().bottom), phraseRects: phrase.getClientRects().length, phraseInside: phraseRect.left >= 0 && phraseRect.right <= innerWidth };
   });
   assert.equal(new Set(aligned.lefts).size, 1, `shared grid left edges differ: ${aligned.lefts.join(', ')}`);
+  assert.equal(aligned.phraseRects, 1, 'Operating System must have exactly one client rect');
+  assert.equal(aligned.phraseInside, true, 'Operating System must stay inside the viewport');
   if (width >= 1000) assert.ok(aligned.heroBottom <= height + 80, `hero extends unexpectedly to ${aligned.heroBottom}px`);
   const undersized = await page.evaluate(() => [...document.querySelectorAll('a, button, input, summary')].filter((el) => {
     const style = getComputedStyle(el);
