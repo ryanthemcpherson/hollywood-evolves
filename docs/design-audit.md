@@ -1,45 +1,35 @@
-# Design Audit — 10-Tell Anti-Slop Review
+# Design Audit — Rejected Direction Rebuild
 
 Audit date: 2026-08-30
-Surface reviewed: responsive production preview, homepage, legal pages, and fallback 404
+Surface reviewed: responsive production preview homepage
 
-## Diagnosis and repair
+## Authoritative feedback addressed
 
-| # | Canonical tell | Finding and treatment | Final |
-|---|---|---|---|
-| 1 | Tech gradient | None. The palette uses flat paper, ink, cinema black, and oxide red. | 0 |
-| 2 | Generic tech hue | None. The accent is editorial red, not default indigo or violet. | 0 |
-| 3 | Feature-tile grid | Avoided. The format and method use ruled sequences; the season uses one continuous ledger rather than equal-weight cards. | 0 |
-| 4 | Accent rail | The cover has a narrow vertical Past / Present / Forecast spine and the private-call panel has a red top rule. Both carry information (the show structure and active decision surface) rather than decorating arbitrary copy. This is a deliberate near-hit worth watching. | 0.5 |
-| 5 | Unearned blur | None. There is no glass, backdrop blur, glow, or false elevation. | 0 |
-| 6 | Monument stat | None. The preview shows no oversized decorative metric or fabricated percentage. | 0 |
-| 7 | Icon topper | None. Method and sharing use words, rules, and native controls rather than an icon set. | 0 |
-| 8 | Center stack | None. The hero, forecast, host, and method compositions remain left-set and asymmetric. | 0 |
-| 9 | Default type | Newsreader remains, but no longer as one enormous undifferentiated headline. Its weight changes and compressed three-line lockup work against DM Sans and DM Mono publication metadata. | 0 |
-| 10 | Wrong surface | The primary surface remains Decide/Learn. The episode ledger adds secondary Inspect behavior through native disclosures without turning the homepage into a dashboard. This is the main risk to revisit if the ledger grows beyond one season. | 0 |
+| Feedback | Implemented response |
+|---|---|
+| Two images of the host | The hero portrait was removed. `index.html` contains one Ian image reference, inside `#host` only. |
+| Subject matter under-emphasized | The opening names Hollywood's production/distribution operating system and asks what changes next before naming the host. |
+| Laptop misalignment | The vertical rail, three-column cover, and detached timing strip were removed. Header, chapters, and footer use one 12-column `.grid`. Browser checks cover 1366×768 and 1440×900. |
+| Scroll page lacked segmentation | Past, Present, and Forecast are numbered sections with IDs, hard boundaries, different palettes, and different compositions. Proximity snap is limited to tall desktop viewports and disabled for reduced motion. |
+| Forecast should lead | The hero is an unresolved forecast instrument and Forecast is the central dark decision surface. |
 
-## Final assessment
+## Visual and content audit
 
-The audit finds **0.5 / 10 present**. The half-point is intentional restraint against self-congratulation: the recurring vertical spine and red decision rule could become generic accent rails if repeated without meaning. The distinctive language is now the issue-cover masthead, supplied monochrome host portrait, compressed mixed-weight headline, hard-edged signal room, ruled slate, paper-to-cinema-black pacing, and time-axis notation. Honesty states are content, not buried disclaimers.
+The lead visual is semantic HTML, CSS, and two small inline SVG drawings: aperture geometry and an audio waveform. Pipeline and distribution nodes are DOM/CSS. It contains no probabilities, metrics, fake UI values, or generated imagery. The only content image is the supplied Ian portrait.
 
-The former dominant Newsreader headline was removed. At desktop, the cover balances premise, action, portrait, and production metadata; at tablet it becomes a two-column reading path; at 390px and 320px the portrait moves beneath the complete premise and actions, while the small vertical time spine preserves the motif without forcing headline breaks. The forecast path diagram drops at 320px because its information is repeated accessibly in the table and method copy.
+The palette changes between ivory, warm paper, oxide red, cinema black, and restrained technical blue. No gradients, glass, rounded SaaS cards, vertical writing, filmstrip language, decorative rail, or detached footer are used.
 
-The extension does increase repetition: Episodes 02–08 use the same native details anatomy, and the page now carries eight numbered sections plus numbered episodes. That is a genuine tell risk. It remains controlled because there are no detached cards, icon toppers, or ornamental numbers: section numbers orient long-form reading, episode numbers identify ledger records, and disclosure repeats only where progressive access to question criteria is necessary. If more seasons are added, this single-page pattern should not simply be extended; filtering or a dedicated ledger index would be more editorially coherent.
+Season One keeps all eight approved draft questions. Episode 01 points to the featured question; Episodes 02–08 use native `details` controls in a compact ruled ledger. Status language remains draft/review/not-open.
 
-### Additional acceptance review
+## Truth, trust, and accessibility
 
-- No fabricated guest, vote, comment, testimonial, trend, distribution, or forecast value appears.
-- The visitor's semantic YES/NO radio choice persists only locally, can be cleared, and is explicitly not submitted, published, or counted.
-- Episode 01 timing is stated only at month/year precision.
-- Episodes 02–08 reproduce the approved draft questions without probabilities, guests, votes, trends, comments, evidence claims, or aired status. Each exposes only a preliminary threshold, deadline, and resolver class, with its review/not-open state visible before disclosure.
-- Sharing uses the canonical URL through native sharing, clipboard fallback, or a selectable readonly field; it includes no social SDK or count.
-- Interactive targets are at least 44px where applicable; focus styling, skip navigation, semantic landmarks, keyboard controls, contrast, and reduced-motion handling are present.
-- Mobile layouts collapse to one column without horizontal overflow.
-- DEG is named typographically; no unofficial brand asset is used.
-- The homepage carries no standalone compliance section; a compact footer legal nav leads to reading-first Accessibility, Privacy, and Terms pages using the same warm-paper typography without hero or card-grid patterns.
+- Forecast views remain empty and truthfully labeled.
+- The Yes/No preview remains browser-local, unsubmitted, unpublished, uncounted, and not a calibrated probability.
+- Episode 01 retains November 2026 recording and January 2027 publishing timing.
+- DEG and TMT attribution remains qualified. Verified written contributors retain moderation, rate-limit, identity, and anti-abuse language.
+- The method keeps non-winner framing and append-only update intent.
+- Focus, 44px targets, keyboard navigation, reduced motion, forced colors, no-JavaScript navigation, and overflow checks remain in the gate.
 
-### Quality and accessibility audit scope
+## Remaining manual review
 
-The implementation aims at WCAG 2.2 Level AA; it does not claim legal certification or guaranteed ADA compliance. `npm test` validates required copy and matched social descriptions, legal-page semantics and metadata, draft-ledger semantics, favicon/manifest inventory, 180/192/512 PNG dimensions, the 1200×630 Open Graph asset, server routes and security headers, binary forecast persistence/reset, native-share and clipboard paths, and menu Escape/outside/link closing with appropriate focus placement and `aria-expanded` state. Escape and outside-pointer closure return focus to the menu button; activating a menu link moves focus to its destination section. Puppeteer Core uses the locally installed `/usr/bin/chromium`; external font requests are blocked in browser tests. Axe-core, target-size, and horizontal-overflow checks cover the homepage at 320, 390, 768, and 1440 CSS pixels and all legal pages at 390 and 1440. Temporary test servers and browser processes are torn down.
-
-Manual review additionally covers the 375px composition, semantic landmarks and heading order, skip navigation, labels and accessible names, ID uniqueness, logical source/tab order, focus visibility, zoom/reflow, safe-area padding, reduced-motion and forced-colors modes, native details/summary behavior, image alternatives, font fallbacks, and absence of hover-only information. The legal pages use a narrow reading measure, logical headings, shared navigation, and a clear homepage return. Known preview limitation: Google-hosted fonts may be blocked or unavailable, with readable system fallbacks retained. Accessibility feedback is invited through the same channel used to access the preview; no contact address is invented.
+Automated testing cannot certify aesthetic quality or WCAG conformance. Manual review should still cover real-font loading, 200% zoom, native disclosure behavior, screen-reader order, and optical balance on physical 1366×768 and 1440×900 displays.
