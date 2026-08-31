@@ -394,11 +394,12 @@ test('native share receives the canonical forecast payload', async () => {
     navigator.share = async (data) => { window.__sharedForecast = data; };
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('link[rel="canonical"]', (link) => { link.href = 'https://canonical.example/preview/'; });
   await page.click('#share-forecast');
   assert.deepEqual(await page.evaluate(() => window.__sharedForecast), {
     title: 'Hollywood Evolves — Episode 01 forecast',
     text: 'Consider the Episode 01 question about the future of ad-supported streaming plans.',
-    url: 'https://hollywoodevolves.mcpherson.app/#forecast',
+    url: 'https://canonical.example/preview/#forecast',
   });
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Sharing request completed.');
   await page.close();
@@ -411,8 +412,10 @@ test('share copies the canonical URL when native share is unavailable', async ()
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value) => { window.__copiedForecast = value; } } });
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.click('.motion-card[data-question-id="question-03"] .motion-card-link');
   await page.click('#share-forecast');
-  assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/#forecast');
+  assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/#question-03');
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Question URL copied.');
   await page.close();
 });
@@ -424,14 +427,30 @@ test('share reveals and selects a readonly URL when sharing APIs are unavailable
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('link[rel="canonical"]', (link) => { link.href = 'https://canonical.example/manual/'; });
   await page.click('#share-forecast');
   assert.deepEqual(await page.$eval('#share-url', (input) => ({
     hidden: input.closest('#share-fallback').hidden,
     readonly: input.readOnly,
     selected: input.selectionStart === 0 && input.selectionEnd === input.value.length,
     focused: document.activeElement === input,
-  })), { hidden: false, readonly: true, selected: true, focused: true });
+    value: input.value,
+  })), { hidden: false, readonly: true, selected: true, focused: true, value: 'https://canonical.example/manual/#forecast' });
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Select and copy the question URL.');
+  await page.close();
+});
+
+test('share falls back to the current document when canonical metadata is malformed', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value) => { window.__copiedForecast = value; } } });
+  });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('link[rel="canonical"]', (link) => { link.setAttribute('href', 'http://['); });
+  await page.click('#share-forecast');
+  assert.equal(await page.evaluate(() => window.__copiedForecast), `${origin}/`);
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Question URL copied.');
   await page.close();
 });
 

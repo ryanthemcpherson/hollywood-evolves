@@ -62,7 +62,8 @@ if (/class="accessibility-section"|id="accessibility"/.test(html)) failures.push
 for (const file of legalFiles) if (!html.includes(`href="/${file}"`)) failures.push(`Homepage footer must link to /${file}.`);
 if (!html.includes('name="robots" content="noindex, nofollow"')) failures.push('Homepage must remain noindex.');
 if (!/<main id="main" tabindex="-1">/.test(html)) failures.push('Homepage main landmark must receive skip-link focus.');
-if (!html.includes('https://hollywoodevolves.mcpherson.app/#forecast')) failures.push('Share fallback must deep-link to the forecast.');
+if (/<input[^>]+id="share-url"[^>]+value=/.test(html)) failures.push('Share fallback URL must be derived from canonical metadata.');
+if (publicSources['src/main.js'].includes('https://hollywoodevolves.mcpherson.app')) failures.push('Share code must not duplicate the canonical origin.');
 
 const manifest = JSON.parse(readFileSync('public/site.webmanifest', 'utf8'));
 if (manifest.id !== '/' || manifest.scope !== '/') failures.push('Manifest id and scope must both be root.');
