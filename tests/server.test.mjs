@@ -170,6 +170,15 @@ test('manifest and modern icon routes are served with correct media types', asyn
   }
 });
 
+test('local brand fonts are served with the WOFF2 media type', async (t) => {
+  const { port } = await startServer(t);
+  for (const path of ['/fonts/dm-sans-latin-variable.woff2', '/fonts/dm-mono-latin-400.woff2', '/fonts/dm-mono-latin-500.woff2', '/fonts/newsreader-latin-variable.woff2']) {
+    const response = await get(port, path);
+    assert.equal(response.status, 200, path);
+    assert.equal(response.headers['content-type'], 'font/woff2', path);
+  }
+});
+
 test('legal pages are served as static HTML', async (t) => {
   const { port } = await startServer(t);
   for (const [path, heading] of [['/accessibility.html', 'Accessibility'], ['/privacy.html', 'Privacy'], ['/terms.html', 'Terms']]) {
