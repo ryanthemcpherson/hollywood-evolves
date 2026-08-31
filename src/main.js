@@ -12,6 +12,8 @@ const instrument = document.querySelector('.instrument');
 const instrumentStage = document.querySelector('.instrument-stage');
 const instrumentTabs = [...document.querySelectorAll('[data-instrument-tab]')];
 const instrumentPanels = [...document.querySelectorAll('[data-instrument-panel]')];
+const instrumentReadout = document.querySelector('.instrument-readout');
+const instrumentRotationControl = document.querySelector('[data-instrument-rotation]');
 const demoBanner = document.querySelector('.demo-banner');
 
 function demoUnavailable() {
@@ -80,7 +82,7 @@ fetch('/api/demo-state', { cache: 'no-store' })
   .then((payload) => { if (payload) renderDemoState(payload); })
   .catch(demoUnavailable);
 
-function selectInstrumentState(state, moveFocus = false) {
+function selectInstrumentState(state, moveFocus = false, announce = true) {
   const selectedTab = instrumentTabs.find((tab) => tab.dataset.instrumentTab === state);
   if (!selectedTab) return;
   instrument.dataset.instrumentState = state;
@@ -90,6 +92,7 @@ function selectInstrumentState(state, moveFocus = false) {
     tab.tabIndex = selected ? 0 : -1;
   });
   instrumentPanels.forEach((panel) => { panel.hidden = panel.dataset.instrumentPanel !== state; });
+  instrumentReadout?.setAttribute('aria-live', announce ? 'polite' : 'off');
   if (moveFocus) selectedTab.focus();
 }
 
@@ -108,6 +111,60 @@ selectInstrumentState('evidence');
 
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const instrumentRotationDelay = 5000;
+let instrumentRotationTimer = null;
+let instrumentRotationPaused = false;
+
+function updateInstrumentRotationControl() {
+  if (!instrumentRotationControl) return;
+  if (reducedMotion.matches) {
+    instrumentRotationControl.disabled = true;
+    instrumentRotationControl.textContent = 'Motion off';
+    instrumentRotationControl.setAttribute('aria-label', 'Automatic rotation disabled by reduced motion');
+    instrumentRotationControl.setAttribute('aria-pressed', 'true');
+    return;
+  }
+  instrumentRotationControl.disabled = false;
+  instrumentRotationControl.textContent = instrumentRotationPaused ? 'Resume' : 'Pause';
+  instrumentRotationControl.setAttribute('aria-label', `${instrumentRotationPaused ? 'Resume' : 'Pause'} automatic rotation`);
+  instrumentRotationControl.setAttribute('aria-pressed', String(instrumentRotationPaused));
+}
+
+function pauseInstrumentRotation() {
+  clearTimeout(instrumentRotationTimer);
+  instrumentRotationTimer = null;
+}
+
+function scheduleInstrumentRotation() {
+  pauseInstrumentRotation();
+  if (!instrument || instrumentRotationPaused || reducedMotion.matches || document.hidden || instrument.matches(':hover, :focus-within')) return;
+  instrumentRotationTimer = setTimeout(() => {
+    const selectedIndex = instrumentTabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+    const nextTab = instrumentTabs[(selectedIndex + 1) % instrumentTabs.length];
+    if (nextTab) selectInstrumentState(nextTab.dataset.instrumentTab, false, false);
+    scheduleInstrumentRotation();
+  }, instrumentRotationDelay);
+}
+
+instrument?.addEventListener('pointerenter', pauseInstrumentRotation);
+instrument?.addEventListener('pointerleave', scheduleInstrumentRotation);
+instrument?.addEventListener('focusin', pauseInstrumentRotation);
+instrument?.addEventListener('focusout', (event) => {
+  if (!instrument.contains(event.relatedTarget)) requestAnimationFrame(scheduleInstrumentRotation);
+});
+instrumentRotationControl?.addEventListener('click', () => {
+  instrumentRotationPaused = !instrumentRotationPaused;
+  updateInstrumentRotationControl();
+  if (instrumentRotationPaused) pauseInstrumentRotation();
+  else scheduleInstrumentRotation();
+});
+document.addEventListener('visibilitychange', scheduleInstrumentRotation);
+reducedMotion.addEventListener?.('change', () => {
+  updateInstrumentRotationControl();
+  scheduleInstrumentRotation();
+});
+updateInstrumentRotationControl();
+scheduleInstrumentRotation();
 function resetInstrumentPointer() {
   instrumentStage?.style.removeProperty('--pointer-x');
   instrumentStage?.style.removeProperty('--pointer-y');
@@ -134,64 +191,34 @@ const cardExpansion = matchMedia('(min-width: 701px)');
 let expandedCard = null;
 let returnFocusAfterHistoryClose = false;
 let questionRailIndex = 0;
-let questionRailScrollTimer = null;
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
 
 function setQuestionRailPosition(index) {
   questionRailIndex = Math.min(Math.max(index, 0), motionCards.length - 1);
+  motionCards.forEach((card, cardIndex) => card.classList.toggle('is-current', cardIndex === questionRailIndex));
   if (questionPosition) questionPosition.textContent = `Question ${questionRailIndex + 1} of ${motionCards.length}`;
   if (questionPrevious) questionPrevious.disabled = questionRailIndex === 0;
   if (questionNext) questionNext.disabled = questionRailIndex === motionCards.length - 1;
 }
 
-function nearestQuestionRailIndex() {
-  if (!questionRail) return 0;
-  const viewportCenter = questionRail.scrollLeft + questionRail.clientWidth / 2;
-  return motionCards.reduce((nearest, card, index) => {
-    const distance = Math.abs(card.offsetLeft + card.offsetWidth / 2 - viewportCenter);
-    return distance < nearest.distance ? { index, distance } : nearest;
-  }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
-}
-
-function updateQuestionRailFromScroll() {
-  setQuestionRailPosition(nearestQuestionRailIndex());
-}
-
-function scrollToQuestion(index) {
-  const targetIndex = Math.min(Math.max(index, 0), motionCards.length - 1);
-  setQuestionRailPosition(targetIndex);
-  const target = motionCards[targetIndex];
-  if (!questionRail || !target) return;
-  const inlinePadding = Number.parseFloat(getComputedStyle(questionRail).paddingInlineStart) || 0;
-  questionRail.scrollTo({
-    left: Math.max(target.offsetLeft - inlinePadding, 0),
-    behavior: reducedMotion.matches ? 'auto' : 'smooth',
-  });
+function showQuestion(index) {
+  setQuestionRailPosition(index);
 }
 
 function updateQuestionRailControls() {
   if (!questionRailControls) return;
   const mobile = !cardExpansion.matches;
   questionRailControls.hidden = !mobile;
-  if (!mobile) {
-    clearTimeout(questionRailScrollTimer);
-    questionRailScrollTimer = null;
-    return;
-  }
-  requestAnimationFrame(updateQuestionRailFromScroll);
 }
 
-questionPrevious?.addEventListener('click', () => scrollToQuestion(questionRailIndex - 1));
-questionNext?.addEventListener('click', () => scrollToQuestion(questionRailIndex + 1));
+questionPrevious?.addEventListener('click', () => showQuestion(questionRailIndex - 1));
+questionNext?.addEventListener('click', () => showQuestion(questionRailIndex + 1));
 questionRail?.addEventListener('focusin', (event) => {
   const card = event.target.closest('.motion-card');
   const index = motionCards.indexOf(card);
   if (index >= 0) setQuestionRailPosition(index);
 });
-questionRail?.addEventListener('scroll', () => {
-  clearTimeout(questionRailScrollTimer);
-  questionRailScrollTimer = setTimeout(updateQuestionRailFromScroll, 100);
-}, { passive: true });
+setQuestionRailPosition(0);
 updateQuestionRailControls();
 
 function questionFragment(card) {
@@ -212,7 +239,8 @@ function createCardContext(card) {
   context.setAttribute('aria-label', 'Full question context');
   close.type = 'button';
   close.dataset.cardClose = '';
-  close.textContent = '× Close context';
+  close.setAttribute('aria-label', 'Close question context');
+  close.textContent = '× Close';
   body.className = 'episode-frame card-context-body';
 
   const row = document.querySelector(`#${questionId}`);
@@ -253,6 +281,8 @@ function collapseCard(card = expandedCard, returnFocus = false) {
 
 function expandCard(card) {
   if (expandedCard && expandedCard !== card) collapseCard(expandedCard);
+  const cardIndex = motionCards.indexOf(card);
+  if (cardIndex >= 0) setQuestionRailPosition(cardIndex);
   const rail = card.parentElement;
   if (cardExpansion.matches) {
     const railCenter = rail.getBoundingClientRect().left + rail.getBoundingClientRect().width / 2;
