@@ -49,6 +49,7 @@ test('repository builds a transactionally consistent read-only public payload fr
   assert.match(payload.label, /^DEMO/);
   assert.equal(payload.questions.length, 8);
   assert.equal(payload.headline.outcome.state, 'unresolved');
+  assert.deepEqual(payload.platforms.map(({ name }) => name), ['Spotify', 'Apple Podcasts', 'YouTube']);
   assert.ok(payload.platforms.every(({ state, url }) => state === 'pending' && url === null));
   assert.doesNotMatch(JSON.stringify(payload), /comment|session|contributor/i);
   assert.equal(calls[0], 'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');

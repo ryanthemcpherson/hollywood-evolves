@@ -14,7 +14,7 @@ Surface reviewed: responsive production preview homepage
 | Forecast should lead | The hero is an unresolved forecast instrument and Forecast is the central dark decision surface. |
 | Forecast instrument felt confusing | The code-built instrument now presents Evidence → Three views → Outcome at once. Its tabs repeat those plain-language stages, name Guest, Community, and Research System, and state that Episode 01 is not open, unresolved, and has no published probability. The layered lens and signal character remains without unexplained gate or pseudo-terminal labels. |
 | “Operating System” wrapped | The phrase has an explicit no-wrap element and responsive headline sizing. Browser checks require one client rect inside the viewport at 320, 390, 768, 1366, and 1440 pixels. |
-| Future platform cards requested | A compact strip directly after the hero contains exactly three semantic placeholders: Spotify, Apple Music, and YouTube. Each has a pending data slot, no link or URL, and shares one truthful January 2027 publication explanation. |
+| Future platform cards requested | A compact strip directly after the hero contains exactly three semantic placeholders: Spotify, Apple Podcasts, and YouTube. Each has a pending data slot, no link or URL, and shares one truthful January 2027 publication explanation. |
 | Forecasts need moving questions | Eight unique linked question cards move through a controlled CSS 3D field, pause on hover/focus, become static under reduced motion, and offer truthful browser-local `YES / NO` calls. Native contracts remain below. |
 
 ## Visual and content audit

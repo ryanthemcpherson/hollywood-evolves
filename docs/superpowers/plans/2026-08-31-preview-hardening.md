@@ -96,8 +96,10 @@ git commit -m "test: make browser discovery portable"
 - Modify: `lib/demo-data-repository.mjs:111`
 - Modify: `scripts/check.mjs:12-115`
 - Modify: `tests/audience.test.mjs:1-30`
+- Modify: `tests/demo-data.test.mjs:34-58`
 - Modify: `tests/browser.test.mjs:280-300`
 - Modify: `tests/public-contract.test.mjs:20-45`
+- Modify: `src/style.css:60,83`
 - Modify: `docs/design-audit.md`
 - Modify: `docs/prediction-system.md:50-65`
 
@@ -129,15 +131,17 @@ Run:
 
 ```powershell
 npm run check
-node --test tests/audience.test.mjs tests/public-contract.test.mjs tests/browser.test.mjs
+npm run build
+node --test tests/audience.test.mjs tests/demo-data.test.mjs tests/public-contract.test.mjs
+node --test --test-name-pattern="homepage presents the hero dock" tests/browser.test.mjs
 ```
 
-Expected: corrected copy passes and the full browser file stays green.
+Expected: corrected copy passes in static, contract, demo-data, and real-browser checks; the five known responsive failures remain isolated to their existing tests.
 
 ### Step 4: Commit
 
 ```powershell
-git add index.html lib/forecast-questions.mjs lib/demo-data-repository.mjs scripts/check.mjs tests/audience.test.mjs tests/browser.test.mjs tests/public-contract.test.mjs docs/design-audit.md docs/prediction-system.md
+git add index.html lib/forecast-questions.mjs lib/demo-data-repository.mjs scripts/check.mjs src/style.css tests/audience.test.mjs tests/demo-data.test.mjs tests/browser.test.mjs tests/public-contract.test.mjs docs/design-audit.md docs/prediction-system.md docs/superpowers/plans/2026-08-31-preview-hardening.md
 git commit -m "fix: correct current platform names"
 ```
 
