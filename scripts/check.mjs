@@ -9,10 +9,13 @@ function pngSize(file) {
 
 const html = readFileSync('index.html', 'utf8');
 const css = readFileSync('src/style.css', 'utf8');
+const brandCss = readFileSync('public/brand/brand.css', 'utf8');
 const legalFiles = ['accessibility.html', 'privacy.html', 'terms.html'];
 const legalPages = Object.fromEntries(legalFiles.map((file) => [file, readFileSync(`public/${file}`, 'utf8')]));
 const publicSurfaceFiles = ['index.html', 'poll.html', 'public/404.html', ...legalFiles.map((file) => `public/${file}`), 'src/main.js', 'src/poll.js'];
 const publicSources = Object.fromEntries(publicSurfaceFiles.map((file) => [file, readFileSync(file, 'utf8')]));
+const fontFiles = ['public/fonts/dm-sans-latin-variable.woff2', 'public/fonts/dm-mono-latin-400.woff2', 'public/fonts/dm-mono-latin-500.woff2', 'public/fonts/newsreader-latin-variable.woff2'];
+const fontLicenses = ['public/fonts/licenses/dm-sans-OFL.txt', 'public/fonts/licenses/dm-mono-OFL.txt', 'public/fonts/licenses/newsreader-OFL.txt'];
 const required = ['Editorial questions for a changing industry', 'Read the Episode 01 premise', 'Explore the editorial themes', 'Browser-local reader tool', 'Eight measurable questions', 'HBO Max', '25 years', '11 years at AWS', 'Head of Business Development at TMT Insights', 'Digital Entertainment Group (DEG)', 'YES threshold', 'Resolve by', 'Evidence / resolver', 'Why it matters:', 'Share this question'];
 const themes = ['Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution'];
 const failures = [...required, ...themes].filter((term) => !html.toLowerCase().includes(term.toLowerCase())).map((term) => `Missing required copy: ${term}`);
@@ -25,6 +28,7 @@ const unlabeledDemo = /\bdemo\b(?![-— ]| ?—)/i;
 for (const [file, source] of Object.entries(publicSources)) {
   if (forbiddenNarration.test(source)) failures.push(`${file} contains roadmap or pre-release narration.`);
   if (file.endsWith('.html') && unlabeledDemo.test(source.replace(/DEMO[-— ]/gi, ''))) failures.push(`${file} mentions demo data without an explicit DEMO label.`);
+  if (file.endsWith('.html') && /fonts\.(?:googleapis|gstatic)\.com|rel="preconnect"[^>]+google/i.test(source)) failures.push(`${file} contains an external Google Fonts dependency.`);
 }
 for (const forbidden of ['lorem ipsum', 'placeholder', 'game-changing', 'rapidly evolving landscape', 'leaderboard', 'linear-gradient', 'radial-gradient']) if ((html + css).toLowerCase().includes(forbidden)) failures.push(`Forbidden pattern: ${forbidden}`);
 
@@ -35,7 +39,11 @@ const assets = {
   'public/icon-512.png': [512, 512],
   'public/icon-maskable-512.png': [512, 512],
 };
-for (const file of ['server.mjs', 'railway.json', 'public/404.html', 'public/favicon.svg', 'public/favicon.ico', 'public/site.webmanifest', 'public/assets/ian-mcpherson.webp', ...Object.keys(assets)]) if (!existsSync(file)) failures.push(`Missing file: ${file}`);
+for (const file of ['server.mjs', 'railway.json', 'public/404.html', 'public/favicon.svg', 'public/favicon.ico', 'public/site.webmanifest', 'public/assets/ian-mcpherson.webp', ...fontFiles, ...fontLicenses, ...Object.keys(assets)]) if (!existsSync(file)) failures.push(`Missing file: ${file}`);
+for (const [family, fileName, weight] of [['DM Sans', 'dm-sans-latin-variable.woff2', '400 600'], ['DM Mono', 'dm-mono-latin-400.woff2', '400'], ['DM Mono', 'dm-mono-latin-500.woff2', '500'], ['Newsreader', 'newsreader-latin-variable.woff2', '400 600']]) {
+  const face = brandCss.match(new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*"${family}"[^}]*${fileName.replace('.', '\\.')}[^}]*\\}`, 's'))?.[0] ?? '';
+  if (!new RegExp(`font-weight:\\s*${weight.replace(' ', '\\s+')}`).test(face) || !/font-display:\s*swap/.test(face)) failures.push(`Missing local ${family} ${weight} font-face declaration.`);
+}
 for (const [file, expected] of Object.entries(assets)) {
   if (!existsSync(file)) continue;
   const { width, height } = pngSize(file);
@@ -91,7 +99,7 @@ for (const [file, page] of Object.entries(legalPages)) {
   if (!page.includes(`href="https://hollywoodevolves.mcpherson.app/${file}"`)) failures.push(`${file} has an unexpected canonical URL.`);
 }
 for (const term of ['WCAG 2.2 Level AA', 'not a legal certification', 'Keyboard, viewport, reduced-motion']) if (!legalPages['accessibility.html'].includes(term)) failures.push(`Accessibility page missing current practice: ${term}`);
-for (const term of ['he-private-forecast', 'he-private-question-calls', 'localStorage', 'not sent to Hollywood Evolves', 'Web Share', 'analytics', 'advertising trackers', 'Google Fonts', 'does not sell personal data', 'cookie banner']) if (!legalPages['privacy.html'].includes(term)) failures.push(`Privacy page missing current implementation detail: ${term}`);
+for (const term of ['he-private-forecast', 'he-private-question-calls', 'localStorage', 'not sent to Hollywood Evolves', 'Web Share', 'analytics', 'advertising trackers', 'served by Hollywood Evolves', 'does not make a font request to Google', 'does not sell personal data', 'cookie banner']) if (!legalPages['privacy.html'].includes(term)) failures.push(`Privacy page missing current implementation detail: ${term}`);
 for (const term of ['not betting or gambling products', 'investment, legal, or business advice', 'bypass security measures', 'respective owners', 'provided as available']) if (!legalPages['terms.html'].includes(term)) failures.push(`Terms page missing current term: ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }

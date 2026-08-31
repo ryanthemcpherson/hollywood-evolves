@@ -6,6 +6,13 @@ import test from 'node:test';
 const root = resolve(import.meta.dirname, '..');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const pages = ['index.html', 'poll.html', 'public/accessibility.html', 'public/privacy.html', 'public/terms.html'];
+const fontFaces = [
+  ['DM Sans', 'public/fonts/dm-sans-latin-variable.woff2', '400 600'],
+  ['DM Mono', 'public/fonts/dm-mono-latin-400.woff2', '400'],
+  ['DM Mono', 'public/fonts/dm-mono-latin-500.woff2', '500'],
+  ['Newsreader', 'public/fonts/newsreader-latin-variable.woff2', '400 600'],
+];
+const fontLicenses = ['public/fonts/licenses/dm-sans-OFL.txt', 'public/fonts/licenses/dm-mono-OFL.txt', 'public/fonts/licenses/newsreader-OFL.txt'];
 
 function metaContent(html, attribute, value) {
   return html.match(new RegExp(`<meta[^>]+${attribute}="${value}"[^>]+content="([^"]+)"`))?.[1]
@@ -32,6 +39,28 @@ test('the brand contract is complete and references approved assets', () => {
   assert.equal(brand.assets.wordmarkInverse, '/brand/wordmark-inverse.svg');
   assert.equal(brand.assets.monogram, '/brand/monogram.svg');
   assert.equal(brand.assets.socialCard, '/brand/social-card.png');
+});
+
+test('brand fonts and licenses are local, declared, and absent from external page dependencies', () => {
+  const brandCss = read('public/brand/brand.css');
+  for (const licensePath of fontLicenses) {
+    assert.equal(existsSync(resolve(root, licensePath)), true, `Missing font license: ${licensePath}`);
+    assert.ok(read(licensePath).length > 1000, `${licensePath} does not contain the full license`);
+  }
+  for (const [family, fontPath, weightRange] of fontFaces) {
+    assert.equal(existsSync(resolve(root, fontPath)), true, `Missing local font: ${fontPath}`);
+    const fileName = fontPath.split('/').at(-1);
+    const declaration = brandCss.match(new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*"${family}"[^}]*${fileName.replace('.', '\\.')}[^}]*\\}`, 's'))?.[0] ?? '';
+    assert.match(declaration, new RegExp(`url\\("/fonts/${fileName}"\\)\\s*format\\("woff2"\\)`), `${family} must use its local WOFF2 asset`);
+    assert.match(declaration, new RegExp(`font-weight:\\s*${weightRange.replace(' ', '\\s+')}`), `${family} has the wrong weight range`);
+    assert.match(declaration, /font-display:\s*swap/, `${family} must use font-display: swap`);
+  }
+  assert.match(brandCss, /font-optical-sizing:\s*auto/, 'Newsreader optical sizing must remain enabled');
+
+  for (const page of [...pages, 'public/404.html']) {
+    const html = read(page);
+    assert.doesNotMatch(html, /fonts\.(?:googleapis|gstatic)\.com|rel="preconnect"[^>]+google|<link[^>]+https?:\/\/[^>]+rel="stylesheet"/i, `${page} includes an external font dependency`);
+  }
 });
 
 test('every page uses the canonical palette, wordmark, and rich-preview image', () => {

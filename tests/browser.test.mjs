@@ -34,11 +34,6 @@ async function newPage() {
   const page = await browser.newPage();
   await page.setBypassCSP(true);
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
-  await page.setRequestInterception(true);
-  page.on('request', (request) => {
-    if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
-    else request.continue();
-  });
   return page;
 }
 
@@ -111,8 +106,7 @@ test('open poll modal is optional, explicit, accessible, and one-response-per-br
   page.on('request', (request) => {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
       request.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: pollDocument });
-    } else if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
-    else request.continue();
+    } else request.continue();
   });
   await page.evaluateOnNewDocument(() => {
     let recorded = false;
@@ -1140,6 +1134,24 @@ test('legal pages reflow, keep 44px targets, and pass axe at mobile and desktop 
   }
 });
 
+test('homepage and legal pages load brand fonts only from the local origin', async () => {
+  const requestedFonts = [];
+  for (const path of ['/', '/privacy.html']) {
+    const page = await newPage();
+    page.on('request', (request) => {
+      if (request.resourceType() === 'font' || /fonts\.(?:googleapis|gstatic)\.com/.test(request.url())) requestedFonts.push(request.url());
+    });
+    await page.goto(`${origin}${path}`, { waitUntil: 'load' });
+    await page.evaluate(() => document.fonts.ready);
+    await page.close();
+  }
+
+  assert.deepEqual([...new Set(requestedFonts.map((url) => new URL(url).origin))], [origin]);
+  for (const file of ['dm-sans-latin-variable.woff2', 'dm-mono-latin-400.woff2', 'dm-mono-latin-500.woff2', 'newsreader-latin-variable.woff2']) {
+    assert.equal(requestedFonts.some((url) => url.endsWith(`/fonts/${file}`)), true, `${file} was not requested`);
+  }
+});
+
 test('demo banner stays hidden when demo mode is off', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
@@ -1155,7 +1167,6 @@ test('demo-state failure shows an explicit unavailable banner without sample val
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     if (request.url().endsWith('/api/demo-state')) request.abort();
-    else if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
     else request.continue();
   });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });

@@ -469,7 +469,8 @@ git commit -m "fix: harden narrow-screen reflow and typography"
 **Files:**
 
 - Create: `public/fonts/dm-sans-latin-variable.woff2`
-- Create: `public/fonts/dm-mono-latin-variable.woff2`
+- Create: `public/fonts/dm-mono-latin-400.woff2`
+- Create: `public/fonts/dm-mono-latin-500.woff2`
 - Create: `public/fonts/newsreader-latin-variable.woff2`
 - Create: `public/fonts/licenses/dm-sans-OFL.txt`
 - Create: `public/fonts/licenses/dm-mono-OFL.txt`
@@ -506,7 +507,7 @@ Expected: assets/declarations are missing and Google references remain.
 
 ### Step 2: Acquire the exact approved font assets and licenses
 
-- Request variable-font CSS from the Google Fonts CSS API with a WOFF2-capable browser user agent for DM Sans 400–600, DM Mono 400–500, and Newsreader optical size 6–72 / weight 400–600.
+- Request font CSS from the Google Fonts CSS API with a WOFF2-capable browser user agent for DM Sans 400–600, DM Mono 400 and 500, and Newsreader optical size 6–72 / weight 400–600. DM Mono is not published as a variable font, so preserve its two real weights instead of synthesizing 500 from the regular face.
 - Download only each Latin WOFF2 resource to the stable filenames above.
 - Download each matching OFL license from the official `google/fonts` repository.
 - Record the source URLs and acquisition date in a comment in `brand.css` or the README asset section.
