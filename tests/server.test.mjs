@@ -189,6 +189,8 @@ test('security headers remain on HTML and asset responses', async (t) => {
     assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.match(headers['permissions-policy'], /camera=\(\)/);
     assert.match(headers['content-security-policy'], /default-src 'self'/);
+    assert.match(headers['content-security-policy'], /style-src 'self' 'unsafe-inline' https:\/\/fonts\.googleapis\.com/);
+    assert.match(headers['content-security-policy'], /font-src 'self' https:\/\/fonts\.gstatic\.com/);
     assert.match(headers['content-security-policy'], /object-src 'none'/);
     assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
   }
