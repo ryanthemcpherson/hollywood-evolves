@@ -10,16 +10,18 @@ Surface reviewed: responsive production preview homepage
 | Two images of the host | The hero portrait was removed. `index.html` contains one Ian image reference, inside `#host` only. |
 | Subject matter under-emphasized | The opening names Hollywood's production/distribution operating system and asks what changes next before naming the host. |
 | Laptop misalignment | The vertical rail, three-column cover, and detached timing strip were removed. Header, chapters, and footer use one 12-column `.grid`. Browser checks cover 1366×768 and 1440×900. |
-| Scroll page lacked segmentation | Past, Present, and Forecast are numbered sections with IDs, hard boundaries, different palettes, and different compositions. Proximity snap is limited to tall desktop viewports and disabled for reduced motion. |
+| Past and Present should be side by side | `#past` and `#present` are sibling articles in one combined split wrapper at desktop/laptop widths, stack on mobile, and share an unmistakable jump to Forecast 03. |
 | Forecast should lead | The hero is an unresolved forecast instrument and Forecast is the central dark decision surface. |
+| Hero image felt unclear | The code-built instrument now reads spatially as Capture → Forecast → Resolve through an aperture focal object, labeled evidence path, signal ribbon, public-ledger plane, and centered unresolved gate. Three accessible tabs explain what each state truthfully means and advance directly to the draft question. |
+| Forecasts need moving questions | Eight unique linked question cards move through a controlled CSS 3D field, pause on hover/focus, become static under reduced motion, and show only truthful unpublished `YES — / NO —` states. Native contracts remain below. |
 
 ## Visual and content audit
 
-The lead visual is semantic HTML, CSS, and two small inline SVG drawings: aperture geometry and an audio waveform. Pipeline and distribution nodes are DOM/CSS. It contains no probabilities, metrics, fake UI values, or generated imagery. The only content image is the supplied Ian portrait.
+The lead visual is semantic HTML, CSS, and two small inline SVG drawings: a lens/aperture and a signal ribbon. Viewfinder marks, the evidence-to-resolution path, forecast gate, and public-ledger plane are DOM/CSS. Its three-step tab interface keeps all core copy in HTML, highlights the relevant visual, supports arrow-key navigation, and adds fine-pointer perspective that resets on exit and is disabled for reduced motion. It contains no probabilities, metrics, fake UI values, or generated imagery. The only content image is the supplied Ian portrait.
 
 The palette changes between ivory, warm paper, oxide red, cinema black, and restrained technical blue. No gradients, glass, rounded SaaS cards, vertical writing, filmstrip language, decorative rail, or detached footer are used.
 
-Season One keeps all eight approved draft questions. Episode 01 points to the featured question; Episodes 02–08 use native `details` controls in a compact ruled ledger. Status language remains draft/review/not-open.
+Season One keeps all eight approved draft questions. Its discovery field has eight accessible source cards and no clones; each links to a stable matching row. Episode 01 points to the featured question; Episodes 02–08 use native `details` controls in a compact ruled ledger. Status language remains draft/review/not-open, with em dashes in place of unpublished community percentages.
 
 ## Truth, trust, and accessibility
 

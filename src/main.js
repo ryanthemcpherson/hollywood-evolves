@@ -8,6 +8,60 @@ const shareButton = document.querySelector('#share-forecast');
 const shareStatus = document.querySelector('#share-status');
 const shareFallback = document.querySelector('#share-fallback');
 const shareUrl = document.querySelector('#share-url');
+const instrument = document.querySelector('.instrument');
+const instrumentStage = document.querySelector('.instrument-stage');
+const instrumentTabs = [...document.querySelectorAll('[data-instrument-tab]')];
+const instrumentPanels = [...document.querySelectorAll('[data-instrument-panel]')];
+
+function selectInstrumentState(state, moveFocus = false) {
+  const selectedTab = instrumentTabs.find((tab) => tab.dataset.instrumentTab === state);
+  if (!selectedTab) return;
+  instrument.dataset.instrumentState = state;
+  instrumentTabs.forEach((tab) => {
+    const selected = tab === selectedTab;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
+  instrumentPanels.forEach((panel) => { panel.hidden = panel.dataset.instrumentPanel !== state; });
+  if (moveFocus) selectedTab.focus();
+}
+
+instrumentTabs.forEach((tab) => {
+  tab.addEventListener('click', () => selectInstrumentState(tab.dataset.instrumentTab));
+  tab.addEventListener('focus', () => selectInstrumentState(tab.dataset.instrumentTab));
+  tab.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const current = instrumentTabs.indexOf(tab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? instrumentTabs.length - 1 : (current + (event.key === 'ArrowRight' ? 1 : -1) + instrumentTabs.length) % instrumentTabs.length;
+    selectInstrumentState(instrumentTabs[next].dataset.instrumentTab, true);
+  });
+});
+selectInstrumentState('capture');
+
+const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function resetInstrumentPointer() {
+  instrumentStage?.style.removeProperty('--pointer-x');
+  instrumentStage?.style.removeProperty('--pointer-y');
+}
+instrumentStage?.addEventListener('pointermove', (event) => {
+  if (!finePointer.matches || reducedMotion.matches) return;
+  const rect = instrumentStage.getBoundingClientRect();
+  instrumentStage.style.setProperty('--pointer-x', ((event.clientX - rect.left) / rect.width - 0.5).toFixed(3));
+  instrumentStage.style.setProperty('--pointer-y', ((event.clientY - rect.top) / rect.height - 0.5).toFixed(3));
+});
+instrumentStage?.addEventListener('pointerleave', resetInstrumentPointer);
+reducedMotion.addEventListener?.('change', resetInstrumentPointer);
+
+const questionCards = [...document.querySelectorAll('.motion-card')];
+const questionRows = [...document.querySelectorAll('.season-ledger > li')];
+questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
+questionCards.forEach((card) => card.addEventListener('click', () => {
+  const row = document.querySelector(card.hash);
+  const disclosure = row?.querySelector('details');
+  if (disclosure) disclosure.open = true;
+}));
 
 const storage = {
   get() { try { return localStorage.getItem('he-private-forecast'); } catch { return null; } },
