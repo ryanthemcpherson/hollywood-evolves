@@ -24,7 +24,8 @@
 - Request only the `openid`, `profile`, and `email` scopes; email is optional in LinkedIn's response and must not be assumed present.
 - Describe signed-in members as **LinkedIn-authenticated**, not identity-verified. LinkedIn's own OIDC documentation says the product does not verify real-world identity and must not be marketed as doing so.
 - A “verified industry contributor” label requires separate editorial review of professional details and industry standing before publication.
-- Authentication is only one control. Moderation, rate limits, abuse prevention, consent and privacy updates, session security, and a publication workflow remain launch requirements.
+- Authentication is only one control. Moderation, rate limits, abuse prevention, consent/privacy updates, session security, and a publication workflow remain launch requirements.
+- Implementation now enforces a pending-only moderation queue, explicit attribution consent, persistent per-member rate limits, seven-day opaque server-side sessions, same-origin CSRF protection, configured editor audit attribution, and self-service deletion of the member account and all submissions. Activation remains fail-closed until the LinkedIn application, persistent volume, and all required production secrets are configured.
 
 ## 2026-08-30 — Episode forecast mix and private question calls
 

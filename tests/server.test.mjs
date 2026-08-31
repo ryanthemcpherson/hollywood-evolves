@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer, request } from 'node:http';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+import { CommentaryStore } from '../lib/commentary-store.mjs';
 
 async function availablePort() {
   const probe = createServer();
@@ -26,11 +29,11 @@ function get(port, path, method = 'GET', body = null, requestHeaders = {}) {
   });
 }
 
-async function startServer(t) {
+async function startServer(t, env = {}) {
   const port = await availablePort();
   const child = spawn(process.execPath, ['server.mjs'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port) },
+    env: { ...process.env, PORT: String(port), ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   t.after(async () => {
@@ -186,4 +189,115 @@ test('security headers remain on HTML and asset responses', async (t) => {
     assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.match(headers['permissions-policy'], /camera=\(\)/);
   }
+});
+
+test('commentary API is fail-closed when LinkedIn and moderation configuration are absent', async (t) => {
+  const { port } = await startServer(t);
+  const session = await get(port, '/api/session');
+  assert.equal(session.status, 200);
+  assert.deepEqual(JSON.parse(session.body), { authenticated: false, commentaryEnabled: false });
+
+  const login = await get(port, '/auth/linkedin');
+  assert.equal(login.status, 503);
+  assert.match(login.body, /not configured/i);
+
+  const comments = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments');
+  assert.equal(comments.status, 200);
+  assert.deepEqual(JSON.parse(comments.body), { comments: [] });
+
+  const submit = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), { 'content-type': 'application/json' });
+  assert.equal(submit.status, 401);
+
+  const pending = await get(port, '/api/admin/comments');
+  assert.equal(pending.status, 401);
+});
+
+test('state-changing commentary routes reject cross-site origins before authentication', async (t) => {
+  const { port } = await startServer(t, { PUBLIC_ORIGIN: 'https://hollywoodevolves.mcpherson.app' });
+  const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), {
+    'content-type': 'application/json',
+    origin: 'https://attacker.example',
+  });
+  assert.equal(response.status, 403);
+  assert.match(JSON.parse(response.body).error, /origin/i);
+});
+
+test('commentary activation requires moderation credentials and an explicit persistent path', async (t) => {
+  const incomplete = {
+    COMMENTARY_ENABLED: 'true',
+    COMMENTARY_SECRET: 'a-commentary-secret-that-is-long-enough',
+    LINKEDIN_CLIENT_ID: 'client-id',
+    LINKEDIN_CLIENT_SECRET: 'client-secret',
+    LINKEDIN_REDIRECT_URI: 'https://hollywoodevolves.mcpherson.app/auth/linkedin/callback',
+  };
+  const { port } = await startServer(t, incomplete);
+  const session = await get(port, '/api/session');
+  assert.deepEqual(JSON.parse(session.body), { authenticated: false, commentaryEnabled: false });
+  const login = await get(port, '/auth/linkedin');
+  assert.equal(login.status, 503);
+
+  const { port: mismatchedPort } = await startServer(t, {
+    ...incomplete,
+    COMMENTARY_ADMIN_TOKEN: 'moderation-token-with-at-least-32-characters',
+    COMMENTARY_ADMIN_NAME: 'Ian McPherson',
+    COMMENTARY_DATA_PATH: '/tmp/hollywood-evolves-mismatched-commentary.json',
+    PUBLIC_ORIGIN: 'https://hollywoodevolves.mcpherson.app',
+    LINKEDIN_REDIRECT_URI: 'https://attacker.example/auth/linkedin/callback',
+  });
+  const mismatchedSession = await get(mismatchedPort, '/api/session');
+  assert.deepEqual(JSON.parse(mismatchedSession.body), { authenticated: false, commentaryEnabled: false });
+});
+
+test('authenticated commentary stays pending until a configured editor approves and verifies it', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'he-commentary-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const dataPath = join(directory, 'commentary.json');
+  const secret = 'commentary-secret-with-at-least-32-characters';
+  const store = new CommentaryStore({ secret, now: () => '2026-08-30T20:00:00.000Z' });
+  store.upsertLinkedInMember({ sub: 'member-1', name: 'Ada Lovelace', picture: null, email: 'ada@example.com', emailVerified: true });
+  const sessionFixture = store.createSession('member-1');
+  await writeFile(dataPath, JSON.stringify(store.snapshot()));
+  const adminToken = 'moderation-token-with-at-least-32-characters';
+  const origin = 'https://hollywoodevolves.mcpherson.app';
+  const { port } = await startServer(t, {
+    COMMENTARY_ENABLED: 'true', COMMENTARY_SECRET: secret, COMMENTARY_ADMIN_TOKEN: adminToken,
+    COMMENTARY_ADMIN_NAME: 'Ian McPherson', COMMENTARY_DATA_PATH: dataPath, PUBLIC_ORIGIN: origin,
+    LINKEDIN_CLIENT_ID: 'client-id', LINKEDIN_CLIENT_SECRET: 'client-secret',
+    LINKEDIN_REDIRECT_URI: `${origin}/auth/linkedin/callback`,
+  });
+  const cookieHeader = `__Host-he_session=${sessionFixture.token}`;
+  const session = await get(port, '/api/session', 'GET', null, { cookie: cookieHeader });
+  const sessionBody = JSON.parse(session.body);
+  assert.equal(sessionBody.authenticated, true);
+  assert.equal(sessionBody.commentaryEnabled, true);
+
+  const submission = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A detailed industry perspective submitted for editorial review.', consent: true }), {
+    cookie: cookieHeader, origin, 'content-type': 'application/json', 'x-csrf-token': sessionBody.csrfToken,
+  });
+  assert.equal(submission.status, 202);
+  const commentId = JSON.parse(submission.body).id;
+  assert.deepEqual(JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body), { comments: [] });
+
+  const verification = await get(port, '/api/admin/verification', 'POST', JSON.stringify({ memberSub: 'member-1', verified: true, reviewer: 'attacker-controlled' }), {
+    authorization: `Bearer ${adminToken}`, origin, 'content-type': 'application/json',
+  });
+  assert.equal(verification.status, 200);
+  const moderation = await get(port, `/api/admin/comments/${commentId}`, 'POST', JSON.stringify({ decision: 'approved', moderator: 'attacker-controlled' }), {
+    authorization: `Bearer ${adminToken}`, origin, 'content-type': 'application/json',
+  });
+  assert.equal(moderation.status, 200);
+  const published = JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body).comments;
+  assert.equal(published[0].contributor.name, 'Ada Lovelace');
+  assert.equal(published[0].contributor.verifiedIndustry, true);
+  assert.doesNotMatch(JSON.stringify(published), /ada@example\.com|member-1/);
+  const persisted = JSON.parse(await readFile(dataPath, 'utf8'));
+  assert.match(JSON.stringify(persisted.audit), /Ian McPherson/);
+  assert.doesNotMatch(JSON.stringify(persisted.audit), /attacker-controlled/);
+
+  const deletion = await get(port, '/api/account', 'DELETE', null, { cookie: cookieHeader, origin, 'x-csrf-token': sessionBody.csrfToken });
+  assert.equal(deletion.status, 200);
+  assert.match(deletion.headers['set-cookie'][0], /Max-Age=0/);
+  assert.deepEqual(JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body), { comments: [] });
+  const afterDeletion = await readFile(dataPath, 'utf8');
+  assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
 });
