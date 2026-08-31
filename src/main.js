@@ -125,10 +125,74 @@ const questionCards = [...document.querySelectorAll('.motion-card-link')];
 const motionCards = [...document.querySelectorAll('.motion-card')];
 const questionRows = [...document.querySelectorAll('.season-ledger > li')];
 const questionCalls = [...document.querySelectorAll('input[data-question-call]')];
+const questionRail = document.querySelector('.question-rail');
+const questionRailControls = document.querySelector('[data-question-rail-controls]');
+const questionPrevious = document.querySelector('[data-question-previous]');
+const questionNext = document.querySelector('[data-question-next]');
+const questionPosition = document.querySelector('#question-position');
 const cardExpansion = matchMedia('(min-width: 701px)');
 let expandedCard = null;
 let returnFocusAfterHistoryClose = false;
+let questionRailIndex = 0;
+let questionRailScrollTimer = null;
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
+
+function setQuestionRailPosition(index) {
+  questionRailIndex = Math.min(Math.max(index, 0), motionCards.length - 1);
+  if (questionPosition) questionPosition.textContent = `Question ${questionRailIndex + 1} of ${motionCards.length}`;
+  if (questionPrevious) questionPrevious.disabled = questionRailIndex === 0;
+  if (questionNext) questionNext.disabled = questionRailIndex === motionCards.length - 1;
+}
+
+function nearestQuestionRailIndex() {
+  if (!questionRail) return 0;
+  const viewportCenter = questionRail.scrollLeft + questionRail.clientWidth / 2;
+  return motionCards.reduce((nearest, card, index) => {
+    const distance = Math.abs(card.offsetLeft + card.offsetWidth / 2 - viewportCenter);
+    return distance < nearest.distance ? { index, distance } : nearest;
+  }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
+}
+
+function updateQuestionRailFromScroll() {
+  setQuestionRailPosition(nearestQuestionRailIndex());
+}
+
+function scrollToQuestion(index) {
+  const targetIndex = Math.min(Math.max(index, 0), motionCards.length - 1);
+  setQuestionRailPosition(targetIndex);
+  const target = motionCards[targetIndex];
+  if (!questionRail || !target) return;
+  const inlinePadding = Number.parseFloat(getComputedStyle(questionRail).paddingInlineStart) || 0;
+  questionRail.scrollTo({
+    left: Math.max(target.offsetLeft - inlinePadding, 0),
+    behavior: reducedMotion.matches ? 'auto' : 'smooth',
+  });
+}
+
+function updateQuestionRailControls() {
+  if (!questionRailControls) return;
+  const mobile = !cardExpansion.matches;
+  questionRailControls.hidden = !mobile;
+  if (!mobile) {
+    clearTimeout(questionRailScrollTimer);
+    questionRailScrollTimer = null;
+    return;
+  }
+  requestAnimationFrame(updateQuestionRailFromScroll);
+}
+
+questionPrevious?.addEventListener('click', () => scrollToQuestion(questionRailIndex - 1));
+questionNext?.addEventListener('click', () => scrollToQuestion(questionRailIndex + 1));
+questionRail?.addEventListener('focusin', (event) => {
+  const card = event.target.closest('.motion-card');
+  const index = motionCards.indexOf(card);
+  if (index >= 0) setQuestionRailPosition(index);
+});
+questionRail?.addEventListener('scroll', () => {
+  clearTimeout(questionRailScrollTimer);
+  questionRailScrollTimer = setTimeout(updateQuestionRailFromScroll, 100);
+}, { passive: true });
+updateQuestionRailControls();
 
 function questionFragment(card) {
   return card?.querySelector('.motion-card-link')?.hash || '';
@@ -276,6 +340,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && expandedCard) closeQuestionContext(expandedCard, true);
 });
 cardExpansion.addEventListener?.('change', () => {
+  updateQuestionRailControls();
   if (!expandedCard) return;
   const card = expandedCard;
   collapseCard(card);

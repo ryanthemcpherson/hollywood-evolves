@@ -44,6 +44,7 @@ for (const [file, expected] of Object.entries(assets)) {
 
 if (!/<fieldset[\s\S]*?<legend[\s\S]*?type="radio"[\s\S]*?value="yes"[\s\S]*?type="radio"[\s\S]*?value="no"[\s\S]*?<\/fieldset>/.test(html)) failures.push('Private forecast must use YES/NO radios in a fieldset with a legend.');
 if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Each of the eight question cards must expose private YES and NO controls.');
+for (const control of ['data-question-rail-controls', 'data-question-previous', 'id="question-position"', 'data-question-next']) if (!html.includes(control)) failures.push(`Mobile question rail is missing ${control}.`);
 if (/type="range"|probability-output|min="1" max="99"/.test(html)) failures.push('Numeric probability slider must be absent.');
 if (!/class="hero-dock"/.test(html)) failures.push('Homepage must include the hero platform dock with named destinations.');
 if (!/hero-dock[^>]*>.*?<li class="spotify">Spotify<\/li><li class="apple-podcasts">Apple Podcasts<\/li><li class="youtube">YouTube<\/li>/s.test(html)) failures.push('Hero dock must name Spotify, Apple Podcasts, and YouTube destinations.');

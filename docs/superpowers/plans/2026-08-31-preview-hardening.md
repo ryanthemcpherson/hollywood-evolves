@@ -324,8 +324,10 @@ Run:
 ```powershell
 npm run check
 npm run build
-node --test --test-name-pattern="mobile question|question rail|mobile theme cards|question-card" tests/browser.test.mjs
+node --test --test-name-pattern="mobile question rail controls|question rail controls stay|mobile question tap|430x844" tests/browser.test.mjs
 ```
+
+Expected: the new controls, enhanced/no-JavaScript boundaries, mobile expansion, target sizes, and 430px axe check pass. The previously recorded narrow overflow assertions remain deferred to Task 7.
 
 Then commit:
 
