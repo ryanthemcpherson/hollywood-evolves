@@ -29,6 +29,7 @@ for (const [file, source] of Object.entries(publicSources)) {
   if (forbiddenNarration.test(source)) failures.push(`${file} contains roadmap or pre-release narration.`);
   if (file.endsWith('.html') && unlabeledDemo.test(source.replace(/DEMO[-— ]/gi, ''))) failures.push(`${file} mentions demo data without an explicit DEMO label.`);
   if (file.endsWith('.html') && /fonts\.(?:googleapis|gstatic)\.com|rel="preconnect"[^>]+google/i.test(source)) failures.push(`${file} contains an external Google Fonts dependency.`);
+  if (file.endsWith('.html') && /<style\b|\sstyle\s*=/i.test(source)) failures.push(`${file} contains inline style content that violates the production CSP.`);
 }
 for (const forbidden of ['lorem ipsum', 'placeholder', 'game-changing', 'rapidly evolving landscape', 'leaderboard', 'linear-gradient', 'radial-gradient']) if ((html + css).toLowerCase().includes(forbidden)) failures.push(`Forbidden pattern: ${forbidden}`);
 
