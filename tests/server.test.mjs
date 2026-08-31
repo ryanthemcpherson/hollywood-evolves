@@ -311,68 +311,10 @@ test('authenticated commentary stays pending until a configured editor approves 
   assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
 });
 
-test('demo-state endpoint is hidden when demo mode is off', async (t) => {
-  const { port } = await startServer(t);
-  const response = await get(port, '/api/demo-state');
-  assert.equal(response.status, 404);
-  const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
-  assert.equal(mutation.status, 404);
-  const ready = await get(port, '/readyz');
-  assert.equal(ready.status, 200);
-  assert.equal(JSON.parse(ready.body).demoMode, false);
-});
-
-test('demo mode with an unreachable database fails closed', async (t) => {
+test('demo environment flags create no public API or readiness surface', async (t) => {
   const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: 'postgres://127.0.0.1:1/none' });
-  const demo = await get(port, '/api/demo-state');
-  assert.equal(demo.status, 503);
-  assert.equal(JSON.parse(demo.body).demo, true);
-  const ready = await get(port, '/readyz');
-  assert.equal(ready.status, 503);
-  const health = await get(port, '/healthz');
-  assert.equal(health.status, 200);
-});
-
-test('demo mode without a database exposes no mutable or commentary API surface', async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), 'he-demo-isolation-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const audiencePath = join(directory, 'audience.json');
-  const commentaryPath = join(directory, 'commentary.json');
-  await writeFile(audiencePath, '{malformed real audience state');
-  await writeFile(commentaryPath, '{malformed real commentary state');
-  const origin = 'https://hollywoodevolves.mcpherson.app';
-  const { port } = await startServer(t, {
-    DEMO_MODE: 'true',
-    COMMENTARY_ENABLED: 'true',
-    COMMENTARY_SECRET: 'a-commentary-secret-that-is-long-enough',
-    COMMENTARY_ADMIN_TOKEN: 'moderation-token-with-at-least-32-characters',
-    COMMENTARY_ADMIN_NAME: 'Ian McPherson',
-    COMMENTARY_DATA_PATH: commentaryPath,
-    LINKEDIN_CLIENT_ID: 'client-id',
-    LINKEDIN_CLIENT_SECRET: 'client-secret',
-    LINKEDIN_REDIRECT_URI: `${origin}/auth/linkedin/callback`,
-    PUBLIC_ORIGIN: origin,
-    AUDIENCE_IMPORT_TOKEN: 'valid-import-token',
-    AUDIENCE_DATA_PATH: audiencePath,
-  });
-
-  const demo = await get(port, '/api/demo-state');
-  assert.equal(demo.status, 503);
-  assert.equal(JSON.parse(demo.body).demo, true);
-  const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
-  assert.equal(mutation.status, 405);
-  assert.equal(mutation.headers.allow, 'GET, HEAD');
-  assert.equal((await get(port, '/readyz')).status, 503);
-
-  for (const [path, method, body, requestHeaders] of [
-    ['/api/session', 'GET', null, {}],
-    ['/api/questions/he-episode-01-customer-evolution-v1/comments', 'GET', null, {}],
-    ['/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', '{}', { origin, 'content-type': 'application/json' }],
-    ['/api/questions/he-episode-01-customer-evolution-v1/responses', 'POST', '{}', { 'content-type': 'application/json' }],
-    ['/api/linkedin/import', 'POST', '{}', { authorization: 'Bearer valid-import-token', 'content-type': 'application/json' }],
-    ['/api/admin/comments', 'GET', null, { authorization: 'Bearer moderation-token-with-at-least-32-characters' }],
-  ]) assert.equal((await get(port, path, method, body, requestHeaders)).status, 404, `${method} ${path}`);
-
-  const login = await get(port, '/auth/linkedin');
-  assert.equal(login.status, 404);
+  assert.equal((await get(port, '/api/demo-state')).status, 404);
+  assert.equal((await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' })).status, 404);
+  assert.equal((await get(port, '/readyz')).status, 404);
+  assert.equal((await get(port, '/healthz')).status, 200);
 });
