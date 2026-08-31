@@ -127,7 +127,16 @@ const questionRows = [...document.querySelectorAll('.season-ledger > li')];
 const questionCalls = [...document.querySelectorAll('input[data-question-call]')];
 const cardExpansion = matchMedia('(min-width: 701px)');
 let expandedCard = null;
+let returnFocusAfterHistoryClose = false;
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
+
+function questionFragment(card) {
+  return card?.querySelector('.motion-card-link')?.hash || '';
+}
+
+function cardForFragment(fragment) {
+  return motionCards.find((card) => questionFragment(card) === fragment) || null;
+}
 
 function createCardContext(card) {
   const questionId = card.dataset.questionId;
@@ -198,7 +207,7 @@ function expandCard(card) {
   link.setAttribute('aria-controls', context.id);
   const cue = link.querySelector('.card-open-cue');
   if (cue) cue.textContent = 'Context open';
-  context.querySelector('[data-card-close]').addEventListener('click', () => collapseCard(card, true));
+  context.querySelector('[data-card-close]').addEventListener('click', () => closeQuestionContext(card, true));
   expandedCard = card;
   if (!cardExpansion.matches) {
     requestAnimationFrame(() => {
@@ -209,6 +218,33 @@ function expandCard(card) {
       root.style.scrollBehavior = previousScrollBehavior;
     });
   }
+}
+
+function closeQuestionContext(card = expandedCard, returnFocus = false) {
+  if (!card) return;
+  const fragment = questionFragment(card);
+  if (location.hash === fragment) {
+    if (history.state?.heQuestionContext === fragment) {
+      returnFocusAfterHistoryClose = returnFocus;
+      history.back();
+      return;
+    }
+    history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+  }
+  collapseCard(card, returnFocus);
+}
+
+function syncQuestionContextFromLocation() {
+  const card = cardForFragment(location.hash);
+  if (card) {
+    const disclosure = document.querySelector(location.hash)?.querySelector('details');
+    if (disclosure) disclosure.open = true;
+    if (expandedCard !== card) expandCard(card);
+    returnFocusAfterHistoryClose = false;
+    return;
+  }
+  if (expandedCard) collapseCard(expandedCard, returnFocusAfterHistoryClose);
+  returnFocusAfterHistoryClose = false;
 }
 
 questionCards.forEach((link) => {
@@ -224,15 +260,26 @@ questionCards.forEach((link) => {
     const disclosure = row?.querySelector('details');
     if (disclosure) disclosure.open = true;
     event.preventDefault();
-    if (card.classList.contains('is-expanded')) collapseCard(card, true);
-    else expandCard(card);
+    if (card.classList.contains('is-expanded')) {
+      closeQuestionContext(card, true);
+      return;
+    }
+    expandCard(card);
+    const state = history.state && typeof history.state === 'object' ? history.state : {};
+    history.pushState({ ...state, heQuestionContext: link.hash }, '', link.hash);
   });
 });
+window.addEventListener('popstate', syncQuestionContextFromLocation);
+window.addEventListener('hashchange', syncQuestionContextFromLocation);
+syncQuestionContextFromLocation();
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && expandedCard) collapseCard(expandedCard, true);
+  if (event.key === 'Escape' && expandedCard) closeQuestionContext(expandedCard, true);
 });
 cardExpansion.addEventListener?.('change', () => {
-  collapseCard();
+  if (!expandedCard) return;
+  const card = expandedCard;
+  collapseCard(card);
+  expandCard(card);
 });
 
 motionCards.forEach((card) => {

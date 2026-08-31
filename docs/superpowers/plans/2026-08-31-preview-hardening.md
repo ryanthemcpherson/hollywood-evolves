@@ -190,6 +190,7 @@ Run:
 
 ```powershell
 npm run check
+npm run build
 node --test --test-name-pattern="skip|legal pages" tests/browser.test.mjs
 ```
 
@@ -244,7 +245,8 @@ Expected: the new URL and restoration assertions fail.
 Run:
 
 ```powershell
-node --test --test-name-pattern="question-card|question URL|history|mobile theme cards" tests/browser.test.mjs
+npm run build
+node --test --test-name-pattern="question-card|question URL|history|direct question fragments|closing full context" tests/browser.test.mjs
 ```
 
 Expected: direct links, click, close, Back, Forward, Escape, focus restoration, motion resumption, and no-JavaScript access pass.
@@ -252,7 +254,7 @@ Expected: direct links, click, close, Back, Forward, Escape, focus restoration, 
 ### Step 4: Commit
 
 ```powershell
-git add src/main.js tests/browser.test.mjs
+git add src/main.js tests/browser.test.mjs docs/superpowers/plans/2026-08-31-preview-hardening.md
 git commit -m "feat: add question context deep links"
 ```
 
@@ -321,6 +323,7 @@ Run:
 
 ```powershell
 npm run check
+npm run build
 node --test --test-name-pattern="mobile question|question rail|mobile theme cards|question-card" tests/browser.test.mjs
 ```
 
@@ -391,6 +394,7 @@ Run:
 
 ```powershell
 npm run check
+npm run build
 node --test --test-name-pattern="share" tests/browser.test.mjs
 node --test tests/public-contract.test.mjs
 ```
@@ -445,6 +449,7 @@ Expected: the 280/300/312 cases expose headline/banner containment and text-size
 Run:
 
 ```powershell
+npm run build
 node --test --test-name-pattern="layout and axe|mobile editions|mobile theme cards|legal pages" tests/browser.test.mjs
 ```
 
