@@ -442,21 +442,37 @@ window.addEventListener('resize', () => {
   if (window.innerWidth > 800) setMenu(false);
 });
 
-const shareData = {
-  title: 'Hollywood Evolves — Episode 01 forecast',
-  text: 'Consider the Episode 01 question about the future of ad-supported streaming plans.',
-  url: 'https://hollywoodevolves.mcpherson.app/#forecast',
-};
+function canonicalShareUrl() {
+  const fallback = window.location.href;
+  try {
+    const canonical = document.querySelector('link[rel="canonical"]')?.getAttribute('href');
+    if (!canonical) return fallback;
+    const url = new URL(canonical, fallback);
+    url.hash = questionFragment(expandedCard) || '#forecast';
+    return url.href;
+  } catch {
+    return fallback;
+  }
+}
 
-function revealShareUrl(message) {
+function currentShareData() {
+  return {
+    title: 'Hollywood Evolves — Episode 01 forecast',
+    text: 'Consider the Episode 01 question about the future of ad-supported streaming plans.',
+    url: canonicalShareUrl(),
+  };
+}
+
+function revealShareUrl(message, url) {
   shareFallback.hidden = false;
-  shareUrl.value = shareData.url;
+  shareUrl.value = url;
   shareUrl.focus();
   shareUrl.select();
   shareStatus.textContent = message;
 }
 
 shareButton.addEventListener('click', async () => {
+  const shareData = currentShareData();
   shareFallback.hidden = true;
   shareStatus.textContent = '';
   if (typeof navigator.share === 'function') {
@@ -480,5 +496,5 @@ shareButton.addEventListener('click', async () => {
       // Continue to the selectable URL when clipboard permission is unavailable.
     }
   }
-  revealShareUrl('Select and copy the question URL.');
+  revealShareUrl('Select and copy the question URL.', shareData.url);
 });
