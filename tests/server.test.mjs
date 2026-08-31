@@ -170,6 +170,13 @@ test('manifest and modern icon routes are served with correct media types', asyn
   }
 });
 
+test('custom 404 stylesheet is served as CSS', async (t) => {
+  const { port } = await startServer(t);
+  const response = await get(port, '/404.css');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers['content-type'], 'text/css; charset=utf-8');
+});
+
 test('local brand fonts are served with the WOFF2 media type', async (t) => {
   const { port } = await startServer(t);
   for (const path of ['/fonts/dm-sans-latin-variable.woff2', '/fonts/dm-mono-latin-400.woff2', '/fonts/dm-mono-latin-500.woff2', '/fonts/newsreader-latin-variable.woff2']) {
@@ -191,13 +198,17 @@ test('legal pages are served as static HTML', async (t) => {
 
 test('security headers remain on HTML and asset responses', async (t) => {
   const { port } = await startServer(t);
-  for (const path of ['/', '/favicon.svg']) {
-    const { headers } = await get(port, path);
+  for (const [path, method] of [['/', 'GET'], ['/favicon.svg', 'GET'], ['/healthz', 'GET'], ['/api/demo-state', 'GET'], ['/missing-page', 'GET'], ['/', 'HEAD']]) {
+    const { headers } = await get(port, path, method);
     assert.equal(headers['x-content-type-options'], 'nosniff');
     assert.equal(headers['x-frame-options'], 'DENY');
     assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.match(headers['permissions-policy'], /camera=\(\)/);
+    assert.equal(headers['strict-transport-security'], 'max-age=31536000; includeSubDomains');
     assert.match(headers['content-security-policy'], /default-src 'self'/);
+    assert.match(headers['content-security-policy'], /style-src 'self'/);
+    assert.match(headers['content-security-policy'], /font-src 'self'/);
+    assert.doesNotMatch(headers['content-security-policy'], /'unsafe-inline'/);
     assert.match(headers['content-security-policy'], /object-src 'none'/);
     assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
   }

@@ -180,6 +180,57 @@ test('mobile navigation remains visible and the inert Menu control stays hidden 
   await page.close();
 });
 
+test('custom 404 reflows, keeps visible focus, and passes axe', async () => {
+  const axeSource = await readFile(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
+  for (const width of [280, 1440]) {
+    const page = await newPage();
+    await page.setViewport({ width, height: 900 });
+    const response = await page.goto(`${origin}/missing-page.html`, { waitUntil: 'load' });
+    assert.equal(response.status(), 404);
+    const layout = await page.evaluate(() => ({
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      heading: document.querySelector('h1')?.textContent,
+      background: getComputedStyle(document.body).backgroundColor,
+      targets: [...document.querySelectorAll('a')].map((link) => {
+        const rect = link.getBoundingClientRect();
+        return [Math.round(rect.width), Math.round(rect.height)];
+      }),
+    }));
+    assert.ok(layout.overflow <= 1, `404 overflows by ${layout.overflow}px at ${width}px`);
+    assert.equal(layout.heading, 'This page didn’t make the cut.');
+    assert.equal(layout.background, 'rgb(243, 239, 230)');
+    assert.equal(layout.targets.every(([targetWidth, targetHeight]) => targetWidth >= 44 && targetHeight >= 44), true);
+    await page.focus('main > a:last-child');
+    const focus = await page.$eval('main > a:last-child', (link) => {
+      const style = getComputedStyle(link);
+      return { outlineWidth: Number.parseFloat(style.outlineWidth), boxShadow: style.boxShadow };
+    });
+    assert.ok(focus.outlineWidth >= 2 && focus.boxShadow !== 'none', `404 focus treatment is incomplete at ${width}px`);
+    await page.addScriptTag({ content: axeSource });
+    const violations = await page.evaluate(() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'] } }).then((result) => result.violations.map(({ id, impact, nodes }) => ({ id, impact, targets: nodes.map((node) => node.target) }))));
+    assert.deepEqual(violations, [], `404 at ${width}px has axe violations`);
+    await page.close();
+  }
+});
+
+test('production content security policy permits initial enhancement without violations', async () => {
+  const page = await browser.newPage();
+  await page.evaluateOnNewDocument(() => {
+    window.__cspViolations = [];
+    document.addEventListener('securitypolicyviolation', (event) => {
+      window.__cspViolations.push({ directive: event.effectiveDirective, blockedURI: event.blockedURI });
+    });
+  });
+  const response = await page.goto(origin, { waitUntil: 'load' });
+  assert.match(response.headers()['content-security-policy'], /style-src 'self'/);
+  assert.doesNotMatch(response.headers()['content-security-policy'], /'unsafe-inline'/);
+  await page.waitForFunction(() => document.documentElement.classList.contains('enhanced'));
+  await page.waitForFunction(() => new Promise((resolve) => setTimeout(() => resolve(true), 250)));
+  assert.equal(await page.$eval('.hero', (hero) => getComputedStyle(hero).backgroundColor), 'rgb(243, 239, 230)');
+  assert.deepEqual(await page.evaluate(() => window.__cspViolations), []);
+  await page.close();
+});
+
 test('homepage skip link moves focus to main content', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
