@@ -60,6 +60,7 @@ if ((html.match(/<dt>YES threshold<\/dt>/g) || []).length < 7 || (html.match(/<d
 if (/class="accessibility-section"|id="accessibility"/.test(html)) failures.push('Homepage must not contain the accessibility section.');
 for (const file of legalFiles) if (!html.includes(`href="/${file}"`)) failures.push(`Homepage footer must link to /${file}.`);
 if (!html.includes('name="robots" content="noindex, nofollow"')) failures.push('Homepage must remain noindex.');
+if (!/<main id="main" tabindex="-1">/.test(html)) failures.push('Homepage main landmark must receive skip-link focus.');
 if (!html.includes('https://hollywoodevolves.mcpherson.app/#forecast')) failures.push('Share fallback must deep-link to the forecast.');
 
 const manifest = JSON.parse(readFileSync('public/site.webmanifest', 'utf8'));
@@ -83,7 +84,7 @@ else {
 if (!maskableSource.includes(iconSource.match(/<path fill="#f3efe6"[^>]+>/)?.[0] || '__missing__')) failures.push('Maskable source must retain the essential monogram artwork.');
 
 for (const [file, page] of Object.entries(legalPages)) {
-  for (const pattern of ['<a class="skip" href="#main">', '<header class="legal-header">', '<nav aria-label="Legal pages">', '<main class="legal-main" id="main">', '<footer class="legal-footer">', '<h1>', 'name="description"', 'name="theme-color"', 'name="robots" content="noindex, nofollow"', 'rel="canonical"', 'rel="icon"', 'rel="apple-touch-icon"', 'href="/legal.css"', 'Back to Hollywood Evolves']) if (!page.includes(pattern)) failures.push(`${file} missing expected semantics or metadata: ${pattern}`);
+  for (const pattern of ['<a class="skip" href="#main">', '<header class="legal-header">', '<nav aria-label="Legal pages">', '<main class="legal-main" id="main" tabindex="-1">', '<footer class="legal-footer">', '<h1>', 'name="description"', 'name="theme-color"', 'name="robots" content="noindex, nofollow"', 'rel="canonical"', 'rel="icon"', 'rel="apple-touch-icon"', 'href="/legal.css"', 'Back to Hollywood Evolves']) if (!page.includes(pattern)) failures.push(`${file} missing expected semantics or metadata: ${pattern}`);
   if ((page.match(/<h1>/g) || []).length !== 1) failures.push(`${file} must contain exactly one h1.`);
   if (!page.includes(`href="https://hollywoodevolves.mcpherson.app/${file}"`)) failures.push(`${file} has an unexpected canonical URL.`);
 }
