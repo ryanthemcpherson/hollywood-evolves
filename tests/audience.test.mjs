@@ -18,7 +18,7 @@ test('Episode 01 has an immutable draft ID and cannot publish audience values ye
     id: 'he-episode-01-customer-evolution-v1',
     episode: '01',
     title: 'Customer Evolution',
-    prompt: 'Will at least three of Netflix, Disney+, Max, Peacock, and Paramount+ report more U.S. subscribers on ad-supported plans than ad-free plans by December 31, 2029?',
+    prompt: 'Will at least three of Netflix, Disney+, HBO Max, Peacock, and Paramount+ report more U.S. subscribers on ad-supported plans than ad-free plans by December 31, 2029?',
     state: 'draft',
     opensAt: null,
     closesAt: null,

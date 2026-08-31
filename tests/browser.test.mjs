@@ -308,7 +308,7 @@ test('homepage presents the hero dock, demo ledger, and no commentary controls',
   await page.setViewport({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.equal(await page.$$eval('.distribution, .platform-card, #commentary-app, #linkedin-login', (nodes) => nodes.length), 0);
-  assert.deepEqual(await page.$$eval('.hero-dock li', (nodes) => nodes.map((node) => node.textContent)), ['Spotify', 'Apple Music', 'YouTube']);
+  assert.deepEqual(await page.$$eval('.hero-dock li', (nodes) => nodes.map((node) => node.textContent)), ['Spotify', 'Apple Podcasts', 'YouTube']);
   await page.evaluate(() => { document.documentElement.dataset.demoState = 'ready'; });
   const dock = await page.$eval('.hero-dock', (node) => {
     const bounds = node.getBoundingClientRect();

@@ -31,7 +31,8 @@ test('homepage keeps explicit demo labeling, hero platform destinations, and no 
     assert.doesNotMatch(homepage, new RegExp(`class="[^"]*\\b${selector}\\b|id="${selector}"`), selector);
   }
   assert.match(homepage, /class="hero-dock"/, 'hero platform dock');
-  for (const platform of ['Spotify', 'Apple Music', 'YouTube']) assert.match(homepage, new RegExp(`class="hero-dock"[\\s\\S]*<li[^>]*>${platform}</li>`), `hero dock names ${platform}`);
+  for (const platform of ['Spotify', 'Apple Podcasts', 'YouTube']) assert.match(homepage, new RegExp(`class="hero-dock"[\\s\\S]*<li[^>]*>${platform}</li>`), `hero dock names ${platform}`);
+  assert.doesNotMatch(homepage, /Apple Music|Netflix, Disney\+, Max, Peacock/);
   assert.match(homepage, /class="demo-banner"/, 'explicit demo banner');
   assert.match(homepage, /data-demo-ledger/, 'demo forecast ledger element');
   assert.match(homepage, /Episode 01/);

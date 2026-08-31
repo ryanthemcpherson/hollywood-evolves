@@ -13,7 +13,7 @@ const legalFiles = ['accessibility.html', 'privacy.html', 'terms.html'];
 const legalPages = Object.fromEntries(legalFiles.map((file) => [file, readFileSync(`public/${file}`, 'utf8')]));
 const publicSurfaceFiles = ['index.html', 'poll.html', 'public/404.html', ...legalFiles.map((file) => `public/${file}`), 'src/main.js', 'src/poll.js'];
 const publicSources = Object.fromEntries(publicSurfaceFiles.map((file) => [file, readFileSync(file, 'utf8')]));
-const required = ['Editorial questions for a changing industry', 'Read the Episode 01 premise', 'Explore the editorial themes', 'Browser-local reader tool', 'Eight measurable questions', '25 years', '11 years at AWS', 'Head of Business Development at TMT Insights', 'Digital Entertainment Group (DEG)', 'YES threshold', 'Resolve by', 'Evidence / resolver', 'Why it matters:', 'Share this question'];
+const required = ['Editorial questions for a changing industry', 'Read the Episode 01 premise', 'Explore the editorial themes', 'Browser-local reader tool', 'Eight measurable questions', 'HBO Max', '25 years', '11 years at AWS', 'Head of Business Development at TMT Insights', 'Digital Entertainment Group (DEG)', 'YES threshold', 'Resolve by', 'Evidence / resolver', 'Why it matters:', 'Share this question'];
 const themes = ['Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution'];
 const failures = [...required, ...themes].filter((term) => !html.toLowerCase().includes(term.toLowerCase())).map((term) => `Missing required copy: ${term}`);
 
@@ -46,7 +46,7 @@ if (!/<fieldset[\s\S]*?<legend[\s\S]*?type="radio"[\s\S]*?value="yes"[\s\S]*?typ
 if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Each of the eight question cards must expose private YES and NO controls.');
 if (/type="range"|probability-output|min="1" max="99"/.test(html)) failures.push('Numeric probability slider must be absent.');
 if (!/class="hero-dock"/.test(html)) failures.push('Homepage must include the hero platform dock with named destinations.');
-if (!/hero-dock[^>]*>.*?<li class="spotify">Spotify<\/li><li class="apple-music">Apple Music<\/li><li class="youtube">YouTube<\/li>/s.test(html)) failures.push('Hero dock must name Spotify, Apple Music, and YouTube destinations.');
+if (!/hero-dock[^>]*>.*?<li class="spotify">Spotify<\/li><li class="apple-podcasts">Apple Podcasts<\/li><li class="youtube">YouTube<\/li>/s.test(html)) failures.push('Hero dock must name Spotify, Apple Podcasts, and YouTube destinations.');
 if (!/class="demo-banner"/.test(html)) failures.push('Homepage must include the explicit demo banner.');
 if (!/data-demo-ledger/.test(html)) failures.push('Homepage must include the demo forecast ledger element.');
 for (const selector of ['preview-stamp', 'distribution', 'platform-card', 'contributors', 'commentary-app', 'linkedin-login']) if (new RegExp(`class="[^"]*\\b${selector}\\b|id="${selector}"`).test(html)) failures.push(`Homepage must omit unavailable ${selector}.`);
