@@ -9,9 +9,10 @@ function pngSize(file) {
 
 const html = readFileSync('index.html', 'utf8');
 const css = readFileSync('src/style.css', 'utf8');
+const decisionLog = readFileSync('docs/decision-log.md', 'utf8');
 const legalFiles = ['accessibility.html', 'privacy.html', 'terms.html'];
 const legalPages = Object.fromEntries(legalFiles.map((file) => [file, readFileSync(`public/${file}`, 'utf8')]));
-const required = ['Preview · In development','Planned recording · November 2026','Target publishing · January 2027','Draft question','criteria in review','not open','Not yet open','not submitted, published, or counted','Planned · Verified industry panel','Working season questions','Remaining theme order and episode assignments are in development','25 years','11 years at AWS','Head of Business Development at TMT Insights','Digital Entertainment Group (DEG)','Brier score','YES threshold','Resolve by','Evidence / resolver','Why it matters:','Share this draft question'];
+const required = ['Preview · In development','Planned recording · November 2026','Target publishing · January 2027','Draft question','criteria in review','not open','Not yet open','not submitted, published, or counted','Planned · LinkedIn-authenticated panel','Working season questions','three forecasts per episode','structural','operating','fast-resolving','question pool','25 years','11 years at AWS','Head of Business Development at TMT Insights','Digital Entertainment Group (DEG)','Brier score','YES threshold','Resolve by','Evidence / resolver','Why it matters:','Share this draft question'];
 const themes = ['Customer Evolution','Media Supply Chain Evolution','Creator Evolution','Content Evolution','Commercial Evolution','Audio Evolution','VFX Evolution','Animation Evolution'];
 const failures = [...required,...themes].filter((term) => !html.toLowerCase().includes(term.toLowerCase())).map((term) => `Missing required copy: ${term}`);
 for (const forbidden of ['lorem ipsum','placeholder','game-changing','rapidly evolving landscape','leaderboard','linear-gradient','radial-gradient']) if ((html + css).toLowerCase().includes(forbidden)) failures.push(`Forbidden pattern: ${forbidden}`);
@@ -29,6 +30,7 @@ for (const [file, expected] of Object.entries(assets)) {
   if (width !== expected[0] || height !== expected[1]) failures.push(`${file} must be ${expected.join('x')}, got ${width}x${height}.`);
 }
 if (!/<fieldset[\s\S]*?<legend[\s\S]*?type="radio"[\s\S]*?value="yes"[\s\S]*?type="radio"[\s\S]*?value="no"[\s\S]*?<\/fieldset>/.test(html)) failures.push('Private forecast must use YES/NO radios in a fieldset with a legend.');
+if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Each of the eight question cards must expose private YES and NO controls.');
 if (!/<table class="ledger">[\s\S]*?<caption class="sr-only">Episode 01 forecast status<\/caption>[\s\S]*?<th scope="col">View<\/th>[\s\S]*?<th scope="row">Guest<\/th>[\s\S]*?<\/table>/.test(html)) failures.push('Forecast status must be a native table with caption and scoped headers.');
 if (/type="range"|probability-output|min="1" max="99"/.test(html)) failures.push('Numeric probability slider must be removed.');
 for (const metadata of ['rel="canonical"','name="twitter:title"','name="twitter:description"','name="twitter:image"','name="twitter:image:alt"','property="og:site_name"','property="og:locale"','name="color-scheme"','name="referrer"','rel="manifest"','rel="apple-touch-icon"']) if (!html.includes(metadata)) failures.push(`Missing metadata: ${metadata}`);
@@ -45,6 +47,8 @@ for (const file of legalFiles) if (!html.includes(`href="/${file}"`)) failures.p
 if (!html.includes('name="robots" content="noindex, nofollow"')) failures.push('Preview must be noindex.');
 if (!html.includes('Preview the Episode 01 draft question')) failures.push('Hero CTA must preview the Episode 01 draft question.');
 if (!html.includes('The Yes/No choice is not a calibrated probability')) failures.push('Homepage private-call note must distinguish the binary choice from a calibrated probability.');
+for (const term of ['Sign in with LinkedIn', 'separate editorial review']) if (!html.includes(term)) failures.push(`Contributor plan missing required LinkedIn qualification: ${term}`);
+for (const term of ['OpenID Connect', 'does not verify real-world identity', 'LinkedIn-authenticated']) if (!decisionLog.includes(term)) failures.push(`Decision log missing LinkedIn authentication decision: ${term}`);
 if (!html.includes('https://hollywoodevolves.mcpherson.app/#forecast')) failures.push('Share fallback must deep-link to the forecast.');
 const manifest = JSON.parse(readFileSync('public/site.webmanifest', 'utf8'));
 if (manifest.id !== '/' || manifest.scope !== '/') failures.push('Manifest id and scope must both be root.');
@@ -73,7 +77,7 @@ for (const [file, page] of Object.entries(legalPages)) {
   if (!page.includes(`href="https://hollywoodevolves.mcpherson.app/${file}"`)) failures.push(`${file} has an unexpected canonical URL.`);
 }
 for (const term of ['WCAG 2.2 Level AA', 'not a legal certification', 'same channel you used to access this preview']) if (!legalPages['accessibility.html'].includes(term)) failures.push(`Accessibility page missing required qualification: ${term}`);
-for (const term of ['he-private-forecast', 'no user accounts', 'analytics', 'advertising trackers', 'community-submission backend', 'Google Fonts', 'does not sell personal data', 'cookie banner', 'identity verification']) if (!legalPages['privacy.html'].includes(term)) failures.push(`Privacy page missing current implementation detail: ${term}`);
+for (const term of ['he-private-forecast', 'no user accounts', 'audience-signal backend', 'draft and not open', 'aggregate-only', 'hashed browser token', 'source label', 'one response per browser', 'LinkedIn reactions are reported separately', 'analytics', 'advertising trackers', 'Google Fonts', 'does not sell personal data', 'cookie banner', 'identity verification']) if (!legalPages['privacy.html'].includes(term)) failures.push(`Privacy page missing current implementation detail: ${term}`);
 for (const term of ['not betting or gambling products', 'investment, legal, or business advice', 'may change until a forecast is formally opened', 'scrape', 'respective owners', 'not a representation that counsel has reviewed']) if (!legalPages['terms.html'].includes(term)) failures.push(`Terms page missing required preview term: ${term}`);
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
 console.log(`Content and implementation checks passed (${required.length + themes.length} required-copy assertions).`);

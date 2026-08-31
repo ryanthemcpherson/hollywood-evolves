@@ -13,7 +13,7 @@ Surface reviewed: responsive production preview homepage
 | Past and Present should be side by side | `#past` and `#present` are sibling articles in one combined split wrapper at desktop/laptop widths, stack on mobile, and share an unmistakable jump to Forecast 03. |
 | Forecast should lead | The hero is an unresolved forecast instrument and Forecast is the central dark decision surface. |
 | Hero image felt unclear | The code-built instrument now reads spatially as Capture → Forecast → Resolve through an aperture focal object, labeled evidence path, signal ribbon, public-ledger plane, and centered unresolved gate. Three accessible tabs explain what each state truthfully means and advance directly to the draft question. |
-| Forecasts need moving questions | Eight unique linked question cards move through a controlled CSS 3D field, pause on hover/focus, become static under reduced motion, and show only truthful unpublished `YES — / NO —` states. Native contracts remain below. |
+| Forecasts need moving questions | Eight unique linked question cards move through a controlled CSS 3D field, pause on hover/focus, become static under reduced motion, and offer truthful browser-local `YES / NO` calls. Native contracts remain below. |
 
 ## Visual and content audit
 
@@ -21,14 +21,14 @@ The lead visual is semantic HTML, CSS, and two small inline SVG drawings: a lens
 
 The palette changes between ivory, warm paper, oxide red, cinema black, and restrained technical blue. No gradients, glass, rounded SaaS cards, vertical writing, filmstrip language, decorative rail, or detached footer are used.
 
-Season One keeps all eight approved draft questions. Its discovery field has eight accessible source cards and no clones; each links to a stable matching row. Episode 01 points to the featured question; Episodes 02–08 use native `details` controls in a compact ruled ledger. Status language remains draft/review/not-open, with em dashes in place of unpublished community percentages.
+Season One keeps all eight approved draft questions as an early question pool. Its discovery field has eight accessible source cards and no clones; each links to a stable matching row and offers a browser-local YES/NO call. The pool no longer implies one question per episode: the system brief specifies a structural, operating, and fast-resolving forecast for each episode, with one headline forecast. Status language remains draft/review/not-open, and no unpublished community percentages are shown.
 
 ## Truth, trust, and accessibility
 
 - Forecast views remain empty and truthfully labeled.
 - The Yes/No preview remains browser-local, unsubmitted, unpublished, uncounted, and not a calibrated probability.
 - Episode 01 retains November 2026 recording and January 2027 publishing timing.
-- DEG and TMT attribution remains qualified. Verified written contributors retain moderation, rate-limit, identity, and anti-abuse language.
+- DEG and TMT attribution remains qualified. Written contributors are described as LinkedIn-authenticated; verified-industry status remains a separate editorial decision, with moderation, rate-limit, identity, and anti-abuse language retained.
 - The method keeps non-winner framing and append-only update intent.
 - Focus, 44px targets, keyboard navigation, reduced motion, forced colors, no-JavaScript navigation, and overflow checks remain in the gate.
 

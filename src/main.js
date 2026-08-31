@@ -1,5 +1,13 @@
 document.documentElement.classList.add('enhanced');
 
+const deepLinkParams = new URLSearchParams(location.search);
+const deepLinkQuestion = deepLinkParams.get('poll');
+if (/^he-[a-z0-9-]+-v\d+$/.test(deepLinkQuestion || '')) {
+  const source = deepLinkParams.get('src');
+  const suffix = source ? `?src=${encodeURIComponent(source)}` : '';
+  location.replace(`/poll/${encodeURIComponent(deepLinkQuestion)}${suffix}`);
+}
+
 const forecastChoices = [...document.querySelectorAll('input[name="private-forecast"]')];
 const reset = document.querySelector('#reset-forecast');
 const menuButton = document.querySelector('.menu-button');
@@ -54,14 +62,37 @@ instrumentStage?.addEventListener('pointermove', (event) => {
 instrumentStage?.addEventListener('pointerleave', resetInstrumentPointer);
 reducedMotion.addEventListener?.('change', resetInstrumentPointer);
 
-const questionCards = [...document.querySelectorAll('.motion-card')];
+const questionCards = [...document.querySelectorAll('.motion-card-link')];
 const questionRows = [...document.querySelectorAll('.season-ledger > li')];
+const questionCalls = [...document.querySelectorAll('input[data-question-call]')];
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
 questionCards.forEach((card) => card.addEventListener('click', () => {
   const row = document.querySelector(card.hash);
   const disclosure = row?.querySelector('details');
   if (disclosure) disclosure.open = true;
 }));
+
+const questionCallStorage = {
+  get() {
+    try {
+      const value = JSON.parse(localStorage.getItem('he-private-question-calls') || '{}');
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    } catch { return {}; }
+  },
+  set(value) {
+    try { localStorage.setItem('he-private-question-calls', JSON.stringify(value)); } catch { /* Calls remain usable without persistence. */ }
+  },
+};
+const storedQuestionCalls = questionCallStorage.get();
+questionCalls.forEach((choice) => {
+  const questionId = choice.closest('.motion-card')?.dataset.questionId;
+  if (questionId && storedQuestionCalls[questionId] === choice.value) choice.checked = true;
+  choice.addEventListener('change', () => {
+    if (!questionId) return;
+    storedQuestionCalls[questionId] = choice.value;
+    questionCallStorage.set(storedQuestionCalls);
+  });
+});
 
 const storage = {
   get() { try { return localStorage.getItem('he-private-forecast'); } catch { return null; } },
