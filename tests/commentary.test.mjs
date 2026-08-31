@@ -47,7 +47,7 @@ test('verified-industry status is separate from LinkedIn authentication', () => 
 
 test('rejects malformed commentary and enforces a persistent per-member hourly limit', () => {
   const { store } = signedInStore({ maxCommentsPerHour: 2 });
-  for (const body of ['', 'too short', 'x'.repeat(1501)]) {
+  for (const body of ['', 'too short', 'x'.repeat(1501), '🙂'.repeat(376), 'A detailed perspective with a forbidden\u0000control character.']) {
     assert.throws(() => store.submitComment({ consent: true, memberSub: 'member-1', questionId, body }), (error) => error.statusCode === 400);
   }
   store.submitComment({ consent: true, memberSub: 'member-1', questionId, body: 'First sufficiently detailed professional perspective.' });

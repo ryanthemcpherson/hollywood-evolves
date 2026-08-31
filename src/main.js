@@ -65,6 +65,7 @@ instrumentStage?.addEventListener('pointerleave', resetInstrumentPointer);
 reducedMotion.addEventListener?.('change', resetInstrumentPointer);
 
 const questionCards = [...document.querySelectorAll('.motion-card-link')];
+const motionCards = [...document.querySelectorAll('.motion-card')];
 const questionRows = [...document.querySelectorAll('.season-ledger > li')];
 const questionCalls = [...document.querySelectorAll('input[data-question-call]')];
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
@@ -73,6 +74,27 @@ questionCards.forEach((card) => card.addEventListener('click', () => {
   const disclosure = row?.querySelector('details');
   if (disclosure) disclosure.open = true;
 }));
+motionCards.forEach((card) => {
+  const reset = () => {
+    card.style.removeProperty('--card-pointer-x');
+    card.style.removeProperty('--card-pointer-y');
+    card.style.removeProperty('animation-play-state');
+  };
+  card.addEventListener('pointerenter', () => {
+    if (!reducedMotion.matches) card.style.animationPlayState = 'paused';
+  });
+  card.addEventListener('pointermove', (event) => {
+    if (!finePointer.matches || reducedMotion.matches) return;
+    card.style.animationPlayState = 'paused';
+    const rect = card.getBoundingClientRect();
+    const x = Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100));
+    card.style.setProperty('--card-pointer-x', `${x.toFixed(1)}%`);
+    card.style.setProperty('--card-pointer-y', `${y.toFixed(1)}%`);
+  });
+  card.addEventListener('pointerleave', reset);
+  reducedMotion.addEventListener?.('change', reset);
+});
 
 const questionCallStorage = {
   get() {

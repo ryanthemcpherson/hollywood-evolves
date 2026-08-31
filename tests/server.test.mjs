@@ -188,6 +188,9 @@ test('security headers remain on HTML and asset responses', async (t) => {
     assert.equal(headers['x-frame-options'], 'DENY');
     assert.equal(headers['referrer-policy'], 'strict-origin-when-cross-origin');
     assert.match(headers['permissions-policy'], /camera=\(\)/);
+    assert.match(headers['content-security-policy'], /default-src 'self'/);
+    assert.match(headers['content-security-policy'], /object-src 'none'/);
+    assert.match(headers['content-security-policy'], /frame-ancestors 'none'/);
   }
 });
 
@@ -205,21 +208,23 @@ test('commentary API is fail-closed when LinkedIn and moderation configuration a
   assert.equal(comments.status, 200);
   assert.deepEqual(JSON.parse(comments.body), { comments: [] });
 
-  const submit = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), { 'content-type': 'application/json' });
+  const submit = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), { 'content-type': 'application/json', origin: 'https://hollywoodevolves.mcpherson.app' });
   assert.equal(submit.status, 401);
 
   const pending = await get(port, '/api/admin/comments');
   assert.equal(pending.status, 401);
 });
 
-test('state-changing commentary routes reject cross-site origins before authentication', async (t) => {
+test('state-changing commentary routes require the exact public origin before authentication', async (t) => {
   const { port } = await startServer(t, { PUBLIC_ORIGIN: 'https://hollywoodevolves.mcpherson.app' });
-  const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), {
-    'content-type': 'application/json',
-    origin: 'https://attacker.example',
-  });
-  assert.equal(response.status, 403);
-  assert.match(JSON.parse(response.body).error, /origin/i);
+  for (const origin of [undefined, 'https://attacker.example']) {
+    const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), {
+      'content-type': 'application/json',
+      ...(origin ? { origin } : {}),
+    });
+    assert.equal(response.status, 403);
+    assert.match(JSON.parse(response.body).error, /origin/i);
+  }
 });
 
 test('commentary activation requires moderation credentials and an explicit persistent path', async (t) => {

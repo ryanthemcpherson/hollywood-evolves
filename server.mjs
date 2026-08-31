@@ -2,12 +2,15 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createReadStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
+import { AuthorizationFlowStore } from './lib/auth-flow-store.mjs';
 import { AudienceSignalStore, parseLinkedInReactionCsv } from './lib/audience-signals.mjs';
 import { CommentaryStore } from './lib/commentary-store.mjs';
 import { audienceCampaigns, forecastQuestions } from './lib/forecast-questions.mjs';
+import { readJson } from './lib/http-body.mjs';
 import { LinkedInOidcClient } from './lib/linkedin-oidc.mjs';
 
 const port = Number(process.env.PORT || 3000);
+const host = process.env.HOST || '0.0.0.0';
 const root = join(process.cwd(), 'dist');
 const dataPath = process.env.AUDIENCE_DATA_PATH || join(process.cwd(), '.data', 'audience-signals.json');
 const hashSecret = process.env.AUDIENCE_HASH_SECRET || 'preview-draft-no-live-responses';
@@ -35,7 +38,13 @@ function validCommentaryConfig() {
 }
 const authConfigured = commentaryEnabled && validCommentaryConfig();
 const types = {'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp','.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json','.ico':'image/x-icon'};
-const headers = {'X-Content-Type-Options':'nosniff','Referrer-Policy':'strict-origin-when-cross-origin','X-Frame-Options':'DENY','Permissions-Policy':'camera=(), microphone=(), geolocation=()'};
+const headers = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'",
+};
 const questions = new Map(forecastQuestions.map((question) => [question.id, question]));
 if (forecastQuestions.some(({ state }) => state === 'open') && (!process.env.AUDIENCE_HASH_SECRET || !process.env.AUDIENCE_DATA_PATH)) {
   throw new Error('Open questions require explicit AUDIENCE_HASH_SECRET and persistent AUDIENCE_DATA_PATH configuration.');
@@ -49,6 +58,7 @@ const linkedIn = authConfigured ? new LinkedInOidcClient({
   clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
   redirectUri: process.env.LINKEDIN_REDIRECT_URI,
 }) : null;
+const authorizationFlows = authConfigured ? new AuthorizationFlowStore({ secret: commentarySecret }) : null;
 const rateBuckets = new Map();
 
 function json(res, status, payload, extraHeaders = {}) {
@@ -85,7 +95,7 @@ function cookie(name, value, { maxAge = null } = {}) {
 
 function sameOrigin(req) {
   const origin = req.headers.origin;
-  return !origin || origin === publicOrigin;
+  return origin === publicOrigin;
 }
 
 function secureEqual(left, right) {
@@ -93,22 +103,6 @@ function secureEqual(left, right) {
   const leftDigest = createHmac('sha256', commentarySecret).update(left).digest();
   const rightDigest = createHmac('sha256', commentarySecret).update(right).digest();
   return timingSafeEqual(leftDigest, rightDigest);
-}
-
-function signedFlow(payload) {
-  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = createHmac('sha256', commentarySecret).update(encoded).digest('base64url');
-  return `${encoded}.${signature}`;
-}
-
-function readFlow(value) {
-  if (typeof value !== 'string') return null;
-  const [encoded, signature, extra] = value.split('.');
-  if (!encoded || !signature || extra || !secureEqual(signature, createHmac('sha256', commentarySecret).update(encoded).digest('base64url'))) return null;
-  try {
-    const payload = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
-    return Date.now() - Date.parse(payload.createdAt) <= 10 * 60 * 1000 ? payload : null;
-  } catch { return null; }
 }
 
 function adminAuthorized(req) {
@@ -135,22 +129,6 @@ function allowRequest(req, scope, limit = 10, windowMs = 10 * 60 * 1000) {
   return true;
 }
 
-function readJson(req, maxBytes = 16 * 1024) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.setEncoding('utf8');
-    req.on('data', (chunk) => {
-      body += chunk;
-      if (body.length > maxBytes) reject(Object.assign(new Error('Request body is too large'), { statusCode: 413 }));
-    });
-    req.on('end', () => {
-      if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) return reject(Object.assign(new Error('Content-Type must be application/json'), { statusCode: 415 }));
-      try { resolve(JSON.parse(body)); } catch { reject(Object.assign(new Error('Invalid JSON'), { statusCode: 400 })); }
-    });
-    req.on('error', reject);
-  });
-}
-
 async function handleAuth(req, res, url) {
   if (req.method !== 'GET') {
     res.writeHead(405, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', Allow: 'GET' });
@@ -166,24 +144,34 @@ async function handleAuth(req, res, url) {
         res.writeHead(429, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '600' });
         return res.end('Too many login attempts.');
       }
-      const state = randomBytes(32).toString('base64url');
-      const nonce = randomBytes(32).toString('base64url');
-      const authorization = await linkedIn.authorizationUrl({ state, nonce });
-      res.writeHead(302, { ...headers, Location: authorization.href, 'Cache-Control': 'no-store', 'Set-Cookie': cookie('__Host-he_oidc', signedFlow({ state, nonce, createdAt: new Date().toISOString() }), { maxAge: 600 }) });
+      const flow = authorizationFlows.create();
+      const authorization = await linkedIn.authorizationUrl({ state: flow.state, nonce: flow.nonce });
+      res.writeHead(302, { ...headers, Location: authorization.href, 'Cache-Control': 'no-store', 'Set-Cookie': cookie('__Host-he_oidc', flow.token, { maxAge: 600 }) });
       return res.end();
     }
     if (url.pathname === '/auth/linkedin/callback') {
-      const flow = readFlow(parseCookies(req)['__Host-he_oidc']);
       const clearFlow = cookie('__Host-he_oidc', '', { maxAge: 0 });
-      if (url.searchParams.get('error')) {
+      const codes = url.searchParams.getAll('code');
+      const states = url.searchParams.getAll('state');
+      const errors = url.searchParams.getAll('error');
+      if (codes.length > 1 || states.length > 1 || errors.length > 1 || (errors.length && (codes.length || states.length))) {
+        res.writeHead(400, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': clearFlow });
+        return res.end('Invalid LinkedIn callback parameters.');
+      }
+      if (errors.length === 1) {
         res.writeHead(400, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': clearFlow });
         return res.end('LinkedIn sign-in was canceled or denied.');
       }
-      if (!flow || !secureEqual(url.searchParams.get('state'), flow.state)) {
+      if (codes.length !== 1 || states.length !== 1) {
+        res.writeHead(400, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': clearFlow });
+        return res.end('Invalid LinkedIn callback parameters.');
+      }
+      const flow = authorizationFlows.consume(parseCookies(req)['__Host-he_oidc'], states[0]);
+      if (!flow) {
         res.writeHead(401, { ...headers, 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'Set-Cookie': clearFlow });
         return res.end('Invalid or expired LinkedIn sign-in state.');
       }
-      const member = await linkedIn.redeem({ code: url.searchParams.get('code'), nonce: flow.nonce });
+      const member = await linkedIn.redeem({ code: codes[0], nonce: flow.nonce });
       commentary.upsertLinkedInMember(member);
       const session = commentary.createSession(member.sub);
       persistCommentary();
@@ -204,7 +192,10 @@ async function handleApi(req, res, url) {
   const commentsMatch = url.pathname.match(/^\/api\/questions\/([a-z0-9-]+)\/comments$/);
   const moderationMatch = url.pathname.match(/^\/api\/admin\/comments\/([A-Za-z0-9_-]+)$/);
   try {
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method) && (commentsMatch || url.pathname === '/api/session/logout' || url.pathname === '/api/account' || url.pathname.startsWith('/api/admin/')) && !sameOrigin(req)) {
+    const mutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
+    const cookieMutation = commentsMatch || url.pathname === '/api/session/logout' || url.pathname === '/api/account';
+    const adminMutation = url.pathname.startsWith('/api/admin/');
+    if (mutation && ((cookieMutation && !sameOrigin(req)) || (adminMutation && req.headers.origin && !sameOrigin(req)))) {
       return json(res, 403, { error: 'Request origin is not allowed' });
     }
     if (url.pathname === '/api/session' && req.method === 'GET') {
@@ -333,4 +324,4 @@ createServer(async (req, res) => {
   res.writeHead(status, {...headers,'Content-Type':types[extname(file)] || 'application/octet-stream','Cache-Control':cache});
   if (req.method === 'HEAD') return res.end();
   createReadStream(file).pipe(res);
-}).listen(port, '0.0.0.0', () => console.log(`Hollywood Evolves listening on 0.0.0.0:${port}`));
+}).listen(port, host, () => console.log(`Hollywood Evolves listening on ${host}:${port}`));
