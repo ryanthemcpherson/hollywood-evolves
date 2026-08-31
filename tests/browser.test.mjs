@@ -311,6 +311,7 @@ test('forecast instrument tabs expose truthful states and support keyboard navig
   await page.focus('#instrument-tab-evidence');
   assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'evidence');
   await page.click('#instrument-tab-outcome');
+  await page.waitForFunction(() => document.querySelector('.instrument')?.dataset.instrumentState === 'outcome', { timeout: 2000 });
   assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'outcome');
   assert.equal(await page.$eval('.instrument-foot a', (link) => link.getAttribute('href')), '#forecast');
   await page.close();
@@ -600,7 +601,7 @@ test('eight truthful motion cards link to stable native question details and off
   await reduced.close();
 });
 
-test('mobile keeps the swipeable question field and direct private calls visible', async () => {
+test('mobile shows one button-controlled question card without a scrollable rail', async () => {
   const page = await newPage();
   await page.evaluateOnNewDocument(() => localStorage.removeItem('he-private-question-calls'));
   await page.setViewport({ width: 390, height: 844 });
@@ -609,11 +610,12 @@ test('mobile keeps the swipeable question field and direct private calls visible
     const field = document.querySelector('.question-field');
     const rail = document.querySelector('.question-rail');
     const cards = [...document.querySelectorAll('.motion-card')];
-    const targets = [...document.querySelectorAll('.card-call label')];
+    const targets = [...document.querySelectorAll('.motion-card.is-current .card-call label')];
     return {
       fieldDisplay: getComputedStyle(field).display,
       fieldWidth: field.getBoundingClientRect().width,
       railScrollable: rail.scrollWidth > rail.clientWidth,
+      visibleCards: cards.filter((card) => getComputedStyle(card).display !== 'none').length,
       cardWidths: cards.map((card) => card.getBoundingClientRect().width),
       targets: targets.map((target) => target.getBoundingClientRect().height),
       duplicateLedgerDisplay: getComputedStyle(document.querySelector('.season-ledger')).display,
@@ -621,8 +623,9 @@ test('mobile keeps the swipeable question field and direct private calls visible
   });
   assert.notEqual(layout.fieldDisplay, 'none');
   assert.ok(layout.fieldWidth > 300 && layout.fieldWidth <= 390);
-  assert.equal(layout.railScrollable, true);
-  assert.ok(layout.cardWidths.every((width) => width >= 250 && width < 390));
+  assert.equal(layout.railScrollable, false);
+  assert.equal(layout.visibleCards, 1);
+  assert.ok(layout.cardWidths[0] >= 250 && layout.cardWidths[0] < 390);
   assert.ok(layout.targets.every((height) => height >= 44));
   assert.equal(layout.duplicateLedgerDisplay, 'none');
   await page.click('.motion-card[data-question-id="question-01"] .card-call label:first-of-type');
@@ -644,7 +647,10 @@ test('mobile question rail controls navigate and report the current card', async
 
   await page.click('[data-question-next]');
   await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 2 of 8');
-  await page.waitForFunction(() => document.querySelector('.question-rail')?.scrollLeft > 0);
+  assert.deepEqual(await page.$eval('.question-rail', (rail) => ({
+    current: rail.querySelector('.motion-card.is-current')?.dataset.questionId,
+    scrollable: rail.scrollWidth > rail.clientWidth,
+  })), { current: 'question-02', scrollable: false });
   for (let index = 0; index < 6; index += 1) await page.click('[data-question-next]');
   await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 8 of 8');
   assert.deepEqual(await page.$eval('[data-question-rail-controls]', (controls) => ({
@@ -652,13 +658,12 @@ test('mobile question rail controls navigate and report the current card', async
     nextDisabled: controls.querySelector('[data-question-next]').disabled,
   })), { previousDisabled: false, nextDisabled: true });
 
-  await page.$eval('.question-rail', (rail) => {
-    rail.scrollTo({ left: 0, behavior: 'instant' });
-    rail.dispatchEvent(new Event('scroll'));
-  });
-  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 1 of 8');
-  await page.focus('.motion-card[data-question-id="question-06"] .motion-card-link');
-  await page.waitForFunction(() => document.querySelector('#question-position')?.textContent === 'Question 6 of 8');
+  assert.equal(await page.$eval('.motion-card.is-current', (card) => card.dataset.questionId), 'question-08');
+  await page.click('[data-question-previous]');
+  assert.deepEqual(await page.$eval('.question-rail', (rail) => ({
+    current: rail.querySelector('.motion-card.is-current')?.dataset.questionId,
+    scrollLeft: rail.scrollLeft,
+  })), { current: 'question-07', scrollLeft: 0 });
   await page.close();
 });
 
@@ -674,15 +679,21 @@ test('question rail controls stay hidden outside enhanced mobile layouts', async
   await noScript.setViewport({ width: 390, height: 844 });
   await noScript.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.equal(await noScript.$eval('[data-question-rail-controls]', (controls) => controls.hidden), true);
-  assert.ok(await noScript.$eval('.question-rail', (rail) => rail.scrollWidth > rail.clientWidth));
+  assert.deepEqual(await noScript.$eval('.question-rail', (rail) => ({
+    scrollable: rail.scrollWidth > rail.clientWidth,
+    visibleCards: [...rail.querySelectorAll('.motion-card')].filter((card) => getComputedStyle(card).display !== 'none').length,
+  })), { scrollable: false, visibleCards: 8 });
   await noScript.close();
 });
 
-test('mobile question tap expands full context vertically without disabling neighboring cards', async () => {
+test('mobile active question expands full context vertically without nested scrolling', async () => {
   const page = await newPage();
   await page.setViewport({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   const selector = '.motion-card[data-question-id="question-03"]';
+  await page.click('[data-question-next]');
+  await page.click('[data-question-next]');
+  await page.waitForFunction(() => document.querySelector('.motion-card.is-current')?.dataset.questionId === 'question-03');
   const before = await page.$eval(selector, (card) => ({
     width: card.getBoundingClientRect().width,
     height: card.getBoundingClientRect().height,
@@ -702,12 +713,13 @@ test('mobile question tap expands full context vertically without disabling neig
       width: rect.width,
       height: rect.height,
       context: context?.textContent.replace(/\s+/g, ' ').trim(),
+      contextScrolls: context.scrollHeight > context.clientHeight + 1,
       contextTop: contextRect.top,
       contextBottom: contextRect.bottom,
       callsBottom: callsRect.bottom,
       viewportHeight: innerHeight,
       neighborShifts: neighbors.map((neighbor) => neighbor.style.getPropertyValue('--card-shift')),
-      neighborsInteractive: neighbors.every((neighbor) => getComputedStyle(neighbor).pointerEvents === 'auto'),
+      visibleNeighbors: neighbors.filter((neighbor) => getComputedStyle(neighbor).display !== 'none').length,
     };
   });
   assert.equal(expanded.expanded, true);
@@ -717,17 +729,18 @@ test('mobile question tap expands full context vertically without disabling neig
   assert.match(expanded.context, /Why it matters:/);
   assert.match(expanded.context, /YES threshold/);
   assert.match(expanded.context, /Resolve by/);
+  assert.equal(expanded.contextScrolls, false);
   assert.ok(expanded.contextTop >= 64 && expanded.contextTop <= 112, `expanded context starts outside the immediate reading area: ${expanded.contextTop}px`);
   assert.ok(expanded.contextBottom < expanded.viewportHeight, `expanded context ends below the viewport: ${expanded.contextBottom}px`);
   assert.ok(expanded.callsBottom < expanded.viewportHeight, `YES/NO controls end below the viewport: ${expanded.callsBottom}px`);
   assert.ok(expanded.neighborShifts.every((shift) => shift === ''));
-  assert.equal(expanded.neighborsInteractive, true);
+  assert.equal(expanded.visibleNeighbors, 0);
   await page.keyboard.press('Escape');
   assert.equal(await page.$eval(selector, (card) => card.classList.contains('is-expanded')), false);
   await page.close();
 });
 
-test('question-card inspection pauses in place and tracks the pointer without moving the target', async () => {
+test('hovering a question card freezes the full field without moving the target', async () => {
   const page = await newPage();
   await page.evaluateOnNewDocument(() => {
     const nativeMatchMedia = window.matchMedia.bind(window);
@@ -753,7 +766,8 @@ test('question-card inspection pauses in place and tracks the pointer without mo
   const card = await page.$(`.motion-card[data-question-id="${questionId}"]`);
   const box = await card.boundingBox();
   await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-  await page.waitForFunction((id) => getComputedStyle(document.querySelector(`.motion-card[data-question-id="${id}"]`)).animationPlayState === 'paused', {}, questionId);
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')]
+    .every((candidate) => getComputedStyle(candidate).animationPlayState === 'paused'), { timeout: 2000 });
   const before = await card.evaluate((element) => {
     const rect = element.getBoundingClientRect();
     return { left: rect.left, top: rect.top, transform: getComputedStyle(element).transform };
@@ -768,6 +782,7 @@ test('question-card inspection pauses in place and tracks the pointer without mo
       transform: style.transform,
       animationName: style.animationName,
       animationPlayState: style.animationPlayState,
+      fieldStates: [...document.querySelectorAll('.motion-card')].map((candidate) => getComputedStyle(candidate).animationPlayState),
       pointerX: element.style.getPropertyValue('--card-pointer-x'),
       pointerY: element.style.getPropertyValue('--card-pointer-y'),
       markerOpacity: getComputedStyle(element, '::before').opacity,
@@ -780,11 +795,109 @@ test('question-card inspection pauses in place and tracks the pointer without mo
   assert.equal(after.transform, before.transform);
   assert.equal(after.animationName, 'question-flow');
   assert.equal(after.animationPlayState, 'paused');
+  assert.ok(after.fieldStates.every((state) => state === 'paused'), `question field did not freeze: ${JSON.stringify(after.fieldStates)}`);
   assert.match(after.pointerX, /%$/);
   assert.match(after.pointerY, /%$/);
   assert.equal(after.markerOpacity, '1');
   assert.equal(after.markerRadius, '0px');
   assert.equal(after.edgeMarkerOpacity, '1');
+  await page.close();
+});
+
+test('forecast instrument automatically advances without moving focus or announcing the rotation', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.focus('.actions .button');
+  await page.waitForFunction(() => document.querySelector('.instrument')?.dataset.instrumentState === 'views', { timeout: 6500 });
+  assert.deepEqual(await page.$eval('.instrument', (instrument) => ({
+    state: instrument.dataset.instrumentState,
+    focusedOutside: document.activeElement?.matches('.actions .button'),
+    live: instrument.querySelector('.instrument-readout')?.getAttribute('aria-live'),
+  })), { state: 'views', focusedOutside: true, live: 'off' });
+  await page.close();
+});
+
+test('hover pauses the forecast instrument rotation and leaving restarts it', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.hover('.instrument');
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'evidence');
+
+  await page.mouse.move(1, 1);
+  await page.waitForFunction(() => document.querySelector('.instrument')?.dataset.instrumentState === 'views', { timeout: 6500 });
+  await page.close();
+});
+
+test('keyboard focus pauses the forecast instrument rotation and leaving restarts it', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.focus('#instrument-tab-evidence');
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'evidence');
+
+  await page.focus('.actions .button');
+  await page.waitForFunction(() => document.querySelector('.instrument')?.dataset.instrumentState === 'views', { timeout: 6500 });
+  await page.close();
+});
+
+test('forecast instrument exposes a usable pause control that persists outside the instrument', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const pauseControl = await page.$('[data-instrument-rotation]');
+  assert.ok(pauseControl, 'automatic rotation has no visible pause control');
+  const pauseLayout = await pauseControl.evaluate((button) => ({
+    label: button.getAttribute('aria-label'),
+    pressed: button.getAttribute('aria-pressed'),
+    width: button.getBoundingClientRect().width,
+    height: button.getBoundingClientRect().height,
+  }));
+  assert.equal(pauseLayout.label, 'Pause automatic rotation');
+  assert.equal(pauseLayout.pressed, 'false');
+  assert.ok(pauseLayout.width >= 44 && pauseLayout.height >= 44, `pause control is smaller than 44px: ${JSON.stringify(pauseLayout)}`);
+
+  await pauseControl.click();
+  await page.focus('.actions .button');
+  await page.mouse.move(1, 1);
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  assert.deepEqual(await page.$eval('[data-instrument-rotation]', (button) => ({
+    state: document.querySelector('.instrument').dataset.instrumentState,
+    label: button.getAttribute('aria-label'),
+    pressed: button.getAttribute('aria-pressed'),
+  })), { state: 'evidence', label: 'Resume automatic rotation', pressed: 'true' });
+
+  await page.click('[data-instrument-rotation]');
+  await page.focus('.actions .button');
+  await page.mouse.move(1, 1);
+  await page.waitForFunction(() => document.querySelector('.instrument')?.dataset.instrumentState === 'views', { timeout: 6500 });
+  await page.close();
+});
+
+test('reduced motion keeps the forecast instrument static and explains why rotation is unavailable', async () => {
+  const page = await newPage();
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.deepEqual(await page.$eval('[data-instrument-rotation]', (button) => ({
+    disabled: button.disabled,
+    label: button.getAttribute('aria-label'),
+    text: button.textContent.trim(),
+  })), { disabled: true, label: 'Automatic rotation disabled by reduced motion', text: 'Motion off' });
+  await new Promise((resolve) => setTimeout(resolve, 5500));
+  assert.equal(await page.$eval('.instrument', (instrument) => instrument.dataset.instrumentState), 'evidence');
+  await page.close();
+});
+
+test('keyboard focus in the question field freezes every moving card', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.focus('.motion-card[data-question-id="question-03"] .motion-card-link');
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')]
+    .every((card) => getComputedStyle(card).animationPlayState === 'paused'), { timeout: 2000 });
+
+  await page.focus('.forecast-jump');
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')]
+    .every((card) => getComputedStyle(card).animationPlayState === 'running'), { timeout: 2000 });
   await page.close();
 });
 
@@ -881,7 +994,7 @@ test('question-card link expands full context, displaces neighbors, and closes w
   assert.match(expanded.context, /Resolve by/);
   assert.match(expanded.context, /Evidence \/ resolver/);
   assert.doesNotMatch(expanded.context, /draft|not open|in development/i);
-  assert.equal(expanded.closeButton, '× Close context');
+  assert.equal(expanded.closeButton, '× Close');
   assert.ok(expanded.shifts.every((shift) => Math.abs(shift) >= 360));
   assert.equal(expanded.neighborsInert, true);
   await page.keyboard.press('Escape');
@@ -892,6 +1005,42 @@ test('question-card link expands full context, displaces neighbors, and closes w
     focused: document.activeElement === card.querySelector('.motion-card-link'),
   }));
   assert.deepEqual(collapsed, { expanded: false, ariaExpanded: 'false', context: false, focused: true });
+  await page.close();
+});
+
+test('expanded question context fits without nested scrolling and keeps its close control at the card corner', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 900 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  await page.focus(`${selector} .motion-card-link`);
+  await page.keyboard.press('Enter');
+
+  const layout = await page.$eval(selector, (card) => {
+    const rail = card.closest('.question-rail');
+    const context = card.querySelector('.card-context');
+    const close = context.querySelector('[data-card-close]');
+    const cardRect = card.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
+    const closeRect = close.getBoundingClientRect();
+    return {
+      contextOverflowY: getComputedStyle(context).overflowY,
+      contextScrolls: context.scrollHeight > context.clientHeight + 1,
+      cardInsideRail: cardRect.bottom <= railRect.bottom + 1,
+      closeLabel: close.getAttribute('aria-label'),
+      closeWidth: closeRect.width,
+      closeHeight: closeRect.height,
+      closeAtTopRight: closeRect.top <= cardRect.top + 24 && closeRect.right >= cardRect.right - 16,
+    };
+  });
+
+  assert.equal(layout.contextOverflowY, 'visible');
+  assert.equal(layout.contextScrolls, false);
+  assert.equal(layout.cardInsideRail, true);
+  assert.equal(layout.closeLabel, 'Close question context');
+  assert.ok(layout.closeWidth >= 96 && layout.closeWidth <= 160, `close control is not compact: ${layout.closeWidth}px`);
+  assert.ok(layout.closeHeight >= 44, `close control is shorter than 44px: ${layout.closeHeight}px`);
+  assert.equal(layout.closeAtTopRight, true);
   await page.close();
 });
 
@@ -931,6 +1080,27 @@ test('direct question fragments restore context and close in place', async () =>
   await page.close();
 });
 
+test('mobile direct question fragments activate and reveal the requested card', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(`${origin}/#question-05`, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-05"]';
+  await page.waitForFunction(() => document.querySelector('.motion-card[data-question-id="question-05"]')?.classList.contains('is-expanded'), { timeout: 2000 });
+
+  assert.deepEqual(await page.$eval(selector, (card) => ({
+    current: card.classList.contains('is-current'),
+    display: getComputedStyle(card).display,
+    position: document.querySelector('#question-position')?.textContent,
+    contextVisible: card.querySelector('.card-context')?.getBoundingClientRect().height > 0,
+  })), {
+    current: true,
+    display: 'grid',
+    position: 'Question 5 of 8',
+    contextVisible: true,
+  });
+  await page.close();
+});
+
 test('question context close button removes its history entry and restores trigger focus', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1366, height: 768 });
@@ -944,7 +1114,7 @@ test('question context close button removes its history entry and restores trigg
   await page.close();
 });
 
-test('closing full context restarts unfocused card movement while preserving trigger focus', async () => {
+test('closing full context preserves focus and keeps the field paused until focus leaves', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1366, height: 768 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
@@ -965,8 +1135,18 @@ test('closing full context restarts unfocused card movement while preserving tri
     state: getComputedStyle(card).animationPlayState,
   })));
   assert.equal(await page.$eval(`${selector} .motion-card-link`, (link) => document.activeElement === link), true);
-  assert.ok(after.every(({ state }) => state === 'running'), `unfocused cards did not resume: ${JSON.stringify(after)}`);
-  assert.ok(after.some((card, index) => Math.abs(card.left - before[index].left) > 5), `unfocused cards remained stationary: ${JSON.stringify({ before, after })}`);
+  assert.ok(after.every(({ state }) => state === 'paused'), `focused field did not remain paused: ${JSON.stringify(after)}`);
+  assert.ok(after.every((card, index) => Math.abs(card.left - before[index].left) < 1), `focused field moved: ${JSON.stringify({ before, after })}`);
+
+  await page.focus('.forecast-jump');
+  const resumedBefore = await page.$$eval('.motion-card', (cards) => cards.map((card) => card.getBoundingClientRect().left));
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const resumedAfter = await page.$$eval('.motion-card', (cards) => cards.map((card) => ({
+    left: card.getBoundingClientRect().left,
+    state: getComputedStyle(card).animationPlayState,
+  })));
+  assert.ok(resumedAfter.every(({ state }) => state === 'running'), `field did not resume after focus left: ${JSON.stringify(resumedAfter)}`);
+  assert.ok(resumedAfter.some((card, index) => Math.abs(card.left - resumedBefore[index]) > 5), `field remained stationary after focus left: ${JSON.stringify({ resumedBefore, resumedAfter })}`);
   await page.close();
 });
 
@@ -1017,13 +1197,14 @@ async function mobileEditorialMetrics(page) {
     const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
     const contentBlocks = [...document.querySelectorAll('main > section, main h1, main h2, main h3, main p, main li')].filter(visible);
     const scrollHeight = document.documentElement.scrollHeight;
-    const cardWords = [...document.querySelectorAll('.motion-card')].map((card) => words(card.innerText));
-    const horizontalWords = cardWords.slice(1).reduce((total, count) => total + count, 0);
+    const questionWords = [...document.querySelectorAll('.motion-card')]
+      .reduce((total, card) => total + words(card.textContent), 0);
     return {
       scrollHeight,
       viewportLengths: Number((scrollHeight / innerHeight).toFixed(1)),
-      // Offscreen snap cards add breadth, not vertical reading load. Count the visible lead card only.
-      mainWords: words(document.querySelector('main').innerText) - horizontalWords,
+      mainWords: words(document.querySelector('main').innerText),
+      // Track button-reachable carousel breadth separately from visible vertical reading load.
+      questionWords,
       visibleBlocks: contentBlocks.length,
       paragraphs: paragraphs.length,
       longParagraphs: paragraphs.filter((paragraph) => paragraph.textContent.trim().length >= 160).length,
@@ -1044,8 +1225,8 @@ test('mobile editions stay within an intentional reading and scroll budget', asy
     390: { scrollHeight: 7300, viewportLengths: 8.7 },
     430: { scrollHeight: 7300, viewportLengths: 8.7 },
   };
-  const sharedBudgets = { mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
-  const preservationFloors = { mainWords: 550, visibleBlocks: 60, paragraphs: 25 };
+  const sharedBudgets = { mainWords: 760, questionWords: 300, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
+  const preservationFloors = { mainWords: 550, questionWords: 200, visibleBlocks: 60, paragraphs: 25 };
   const measurements = {};
   const failures = [];
   for (const width of [280, 300, 312, 320, 375, 390, 430]) {
@@ -1076,7 +1257,8 @@ test('mobile theme cards keep all eight editorial contracts reachable without ho
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.doesNotMatch(await page.$eval('.season-header', (header) => header.textContent), /open any theme/i);
   const contracts = [];
-  for (const link of await page.$$('.motion-card-link')) {
+  for (let index = 0; index < 8; index += 1) {
+    const link = await page.$('.motion-card.is-current .motion-card-link');
     await link.focus();
     await link.press('Enter');
     contracts.push(await link.evaluate((questionLink) => {
@@ -1090,6 +1272,11 @@ test('mobile theme cards keep all eight editorial contracts reachable without ho
       };
     }));
     await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.motion-card.is-expanded'));
+    if (index < 7) {
+      await page.click('[data-question-next]');
+      await page.waitForFunction((expectedIndex) => document.querySelector('.motion-card.is-current')?.dataset.questionId === `question-${String(expectedIndex + 1).padStart(2, '0')}`, {}, index + 1);
+    }
   }
   assert.equal(contracts.length, 8);
   assert.ok(contracts.every(({ expanded, question, rendered }) => expanded && question && rendered));
