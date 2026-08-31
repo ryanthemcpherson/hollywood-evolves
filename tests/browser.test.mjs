@@ -524,16 +524,23 @@ test('mobile question tap expands full context vertically without disabling neig
   }));
   await page.focus(`${selector} .motion-card-link`);
   await page.keyboard.press('Enter');
+  await new Promise((resolve) => setTimeout(resolve, 700));
   const expanded = await page.$eval(selector, (card) => {
     const context = card.querySelector('.card-context');
     const neighbors = [...card.parentElement.querySelectorAll('.motion-card:not(.is-expanded)')];
     const rect = card.getBoundingClientRect();
+    const contextRect = context.getBoundingClientRect();
+    const callsRect = card.querySelector('.card-call').getBoundingClientRect();
     return {
       expanded: card.classList.contains('is-expanded'),
       ariaExpanded: card.querySelector('.motion-card-link').getAttribute('aria-expanded'),
       width: rect.width,
       height: rect.height,
       context: context?.textContent.replace(/\s+/g, ' ').trim(),
+      contextTop: contextRect.top,
+      contextBottom: contextRect.bottom,
+      callsBottom: callsRect.bottom,
+      viewportHeight: innerHeight,
       neighborShifts: neighbors.map((neighbor) => neighbor.style.getPropertyValue('--card-shift')),
       neighborsInteractive: neighbors.every((neighbor) => getComputedStyle(neighbor).pointerEvents === 'auto'),
     };
@@ -545,6 +552,9 @@ test('mobile question tap expands full context vertically without disabling neig
   assert.match(expanded.context, /Why it matters:/);
   assert.match(expanded.context, /YES threshold/);
   assert.match(expanded.context, /Resolve by/);
+  assert.ok(expanded.contextTop >= 64 && expanded.contextTop <= 112, `expanded context starts outside the immediate reading area: ${expanded.contextTop}px`);
+  assert.ok(expanded.contextBottom < expanded.viewportHeight, `expanded context ends below the viewport: ${expanded.contextBottom}px`);
+  assert.ok(expanded.callsBottom < expanded.viewportHeight, `YES/NO controls end below the viewport: ${expanded.callsBottom}px`);
   assert.ok(expanded.neighborShifts.every((shift) => shift === ''));
   assert.equal(expanded.neighborsInteractive, true);
   await page.keyboard.press('Escape');
@@ -618,10 +628,8 @@ test('every fully visible moving card exposes clickable question, YES, and NO ta
   await page.setViewport({ width: 1366, height: 768 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.$eval('.question-rail', (rail) => rail.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  const rail = await page.$('.question-rail');
-  const railBox = await rail.boundingBox();
-  await page.mouse.move(railBox.x + 4, railBox.y + 4);
-  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].every((card) => getComputedStyle(card).animationPlayState === 'paused'));
+  await page.$$eval('.motion-card', (cards) => cards.forEach((card) => card.getAnimations().forEach((animation) => animation.pause())));
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].every((card) => card.getAnimations().every((animation) => animation.playState === 'paused')));
   const hitTest = await page.evaluate(() => {
     const railRect = document.querySelector('.question-rail').getBoundingClientRect();
     const cards = [...document.querySelectorAll('.motion-card')].filter((card) => {
@@ -649,15 +657,13 @@ test('question-card YES and NO controls advertise pointer interaction and hover 
   await page.setViewport({ width: 1366, height: 768 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.$eval('.question-rail', (rail) => rail.scrollIntoView({ block: 'center', behavior: 'instant' }));
-  const rail = await page.$('.question-rail');
-  const railBox = await rail.boundingBox();
-  await page.mouse.move(railBox.x + 4, railBox.y + 4);
-  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].every((card) => getComputedStyle(card).animationPlayState === 'paused'));
   const questionId = await page.evaluate(() => [...document.querySelectorAll('.motion-card')].find((card) => {
     const label = card.querySelector('.card-call label:first-of-type');
     const rect = label.getBoundingClientRect();
     return card.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
   })?.dataset.questionId);
+  await page.hover(`.motion-card[data-question-id="${questionId}"]`);
+  await page.waitForFunction((id) => getComputedStyle(document.querySelector(`.motion-card[data-question-id="${id}"]`)).animationPlayState === 'paused', {}, questionId);
   const label = await page.$(`.motion-card[data-question-id="${questionId}"] .card-call label:first-of-type`);
   await label.hover();
   await new Promise((resolve) => setTimeout(resolve, 180));
@@ -721,6 +727,57 @@ test('question-card link expands full context, displaces neighbors, and closes w
     focused: document.activeElement === card.querySelector('.motion-card-link'),
   }));
   assert.deepEqual(collapsed, { expanded: false, ariaExpanded: 'false', context: false, focused: true });
+  await page.close();
+});
+
+test('closing full context restarts unfocused card movement while preserving trigger focus', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  await page.focus(`${selector} .motion-card-link`);
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  const before = await page.evaluate(() => [...document.querySelectorAll('.motion-card:not([data-question-id="question-03"])')].map((card) => ({
+    id: card.dataset.questionId,
+    left: card.getBoundingClientRect().left,
+    state: getComputedStyle(card).animationPlayState,
+  })));
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const after = await page.evaluate(() => [...document.querySelectorAll('.motion-card:not([data-question-id="question-03"])')].map((card) => ({
+    id: card.dataset.questionId,
+    left: card.getBoundingClientRect().left,
+    state: getComputedStyle(card).animationPlayState,
+  })));
+  assert.equal(await page.$eval(`${selector} .motion-card-link`, (link) => document.activeElement === link), true);
+  assert.ok(after.every(({ state }) => state === 'running'), `unfocused cards did not resume: ${JSON.stringify(after)}`);
+  assert.ok(after.some((card, index) => Math.abs(card.left - before[index].left) > 5), `unfocused cards remained stationary: ${JSON.stringify({ before, after })}`);
+  await page.close();
+});
+
+test('moving question cards use a readable travel duration', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const durations = await page.$$eval('.motion-card', (cards) => cards.map((card) => Number.parseFloat(getComputedStyle(card).animationDuration)));
+  assert.ok(durations.every((duration) => duration >= 40), `question cards move too quickly: ${JSON.stringify(durations)}`);
+  await page.close();
+});
+
+test('moving question cards use restrained perspective for legible text', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const transforms = await page.$$eval('.motion-card', (cards) => cards.map((card) => {
+    const matrix = new DOMMatrixReadOnly(getComputedStyle(card).transform);
+    return {
+      tilt: Math.abs(Math.atan2(matrix.m13, matrix.m11) * 180 / Math.PI),
+      depth: Math.abs(matrix.m43),
+    };
+  }));
+  assert.ok(Math.max(...transforms.map(({ tilt }) => tilt)) <= 5, `question-card tilt is too strong: ${JSON.stringify(transforms)}`);
+  assert.ok(Math.max(...transforms.map(({ depth }) => depth)) <= 25, `question-card depth is too strong: ${JSON.stringify(transforms)}`);
   await page.close();
 });
 
