@@ -10,7 +10,7 @@ Each episode explains a prior industry transition, examines today's operating si
 
 ## Current scope
 
-1. A simple, credible public website for the podcast and its eight-episode first season.
+1. A responsive editorial-cinema website for the podcast and its eight-question first-season slate.
 2. A forecast-question studio that turns broad themes into simple, measurable questions.
 3. A research pipeline that monitors industry news, company disclosures, regulation, and relevant research.
 4. A multi-agent forecasting process that produces scenarios and calibrated probabilities without publishing generic AI prose.
@@ -44,6 +44,12 @@ npm run build
 ```
 
 The production site is written to `dist/`.
+
+### Homepage composition
+
+The homepage is organized as an issue cover followed by an inspectable intelligence desk. A compact publication masthead, the supplied Ian McPherson portrait, a deliberate three-line premise, actions, and Episode 01 production timing share the first viewport. `Past → Present → Forecast` is the repeating navigation motif: it appears as a vertical cover rail, a three-act editorial sequence, and a state path through the forecast ledger. The dark forecast room keeps the empty Guest, Community, and Research System views visible without inventing values; the season remains a compact ruled index with native disclosure details.
+
+The interface progressively enhances its mobile menu, local-only binary call, and sharing tools. With JavaScript disabled, primary navigation and all editorial content remain available, and native `details` elements still expose draft resolution contracts.
 
 `npm test` is the complete quality gate. It runs content and metadata assertions, validates the icon inventory and exact PNG dimensions, builds the Vite site, starts temporary local servers, verifies traversal handling/security headers/legal routes/asset media types, and drives the system `/usr/bin/chromium` through Puppeteer Core. Browser checks cover the binary local forecast, storage-denied fallback, menu keyboard behavior and appropriate focus placement, minimum 44×44 CSS-pixel targets, horizontal reflow, and axe-core WCAG 2.2 Level A/AA rules (including contrast) at representative widths. Each test-owned server and browser is closed during teardown; no browser download is used.
 

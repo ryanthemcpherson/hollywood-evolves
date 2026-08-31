@@ -10,17 +10,19 @@ Surface reviewed: responsive production preview, homepage, legal pages, and fall
 | 1 | Tech gradient | None. The palette uses flat paper, ink, cinema black, and oxide red. | 0 |
 | 2 | Generic tech hue | None. The accent is editorial red, not default indigo or violet. | 0 |
 | 3 | Feature-tile grid | Avoided. The format and method use ruled sequences; the season uses one continuous ledger rather than equal-weight cards. | 0 |
-| 4 | Accent rail | The first private-forecast treatment had a decorative red left rule. It was removed after independent review; hierarchy now comes from type, spacing, and the dark surface. | 0 |
+| 4 | Accent rail | The cover has a narrow vertical Past / Present / Forecast spine and the private-call panel has a red top rule. Both carry information (the show structure and active decision surface) rather than decorating arbitrary copy. This is a deliberate near-hit worth watching. | 0.5 |
 | 5 | Unearned blur | None. There is no glass, backdrop blur, glow, or false elevation. | 0 |
 | 6 | Monument stat | None. The preview shows no oversized decorative metric or fabricated percentage. | 0 |
 | 7 | Icon topper | None. Method and sharing use words, rules, and native controls rather than an icon set. | 0 |
 | 8 | Center stack | None. The hero, forecast, host, and method compositions remain left-set and asymmetric. | 0 |
-| 9 | Default type | None. Newsreader and DM Sans were chosen for an editorial rather than startup-product voice. | 0 |
+| 9 | Default type | Newsreader remains, but no longer as one enormous undifferentiated headline. Its weight changes and compressed three-line lockup work against DM Sans and DM Mono publication metadata. | 0 |
 | 10 | Wrong surface | The primary surface remains Decide/Learn. The episode ledger adds secondary Inspect behavior through native disclosures without turning the homepage into a dashboard. This is the main risk to revisit if the ledger grows beyond one season. | 0 |
 
 ## Final assessment
 
-All ten compositional tells are absent after repair: **0 / 10 present**. The distinctive language is an oversized editorial headline, hard-edged ledger, paper-to-cinema-black pacing, red editorial marks, and asymmetrical host composition. Honesty states are content, not buried disclaimers.
+The audit finds **0.5 / 10 present**. The half-point is intentional restraint against self-congratulation: the recurring vertical spine and red decision rule could become generic accent rails if repeated without meaning. The distinctive language is now the issue-cover masthead, supplied monochrome host portrait, compressed mixed-weight headline, hard-edged signal room, ruled slate, paper-to-cinema-black pacing, and time-axis notation. Honesty states are content, not buried disclaimers.
+
+The former dominant Newsreader headline was removed. At desktop, the cover balances premise, action, portrait, and production metadata; at tablet it becomes a two-column reading path; at 390px and 320px the portrait moves beneath the complete premise and actions, while the small vertical time spine preserves the motif without forcing headline breaks. The forecast path diagram drops at 320px because its information is repeated accessibly in the table and method copy.
 
 The extension does increase repetition: Episodes 02–08 use the same native details anatomy, and the page now carries eight numbered sections plus numbered episodes. That is a genuine tell risk. It remains controlled because there are no detached cards, icon toppers, or ornamental numbers: section numbers orient long-form reading, episode numbers identify ledger records, and disclosure repeats only where progressive access to question criteria is necessary. If more seasons are added, this single-page pattern should not simply be extended; filtering or a dedicated ledger index would be more editorially coherent.
 
