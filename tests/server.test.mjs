@@ -310,3 +310,25 @@ test('authenticated commentary stays pending until a configured editor approves 
   const afterDeletion = await readFile(dataPath, 'utf8');
   assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
 });
+
+test('demo-state endpoint is hidden when demo mode is off', async (t) => {
+  const { port } = await startServer(t);
+  const response = await get(port, '/api/demo-state');
+  assert.equal(response.status, 404);
+  const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
+  assert.equal(mutation.status, 404);
+  const ready = await get(port, '/readyz');
+  assert.equal(ready.status, 200);
+  assert.equal(JSON.parse(ready.body).demoMode, false);
+});
+
+test('demo mode with an unreachable database fails closed', async (t) => {
+  const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: 'postgres://127.0.0.1:1/none' });
+  const demo = await get(port, '/api/demo-state');
+  assert.equal(demo.status, 503);
+  assert.equal(JSON.parse(demo.body).demo, true);
+  const ready = await get(port, '/readyz');
+  assert.equal(ready.status, 503);
+  const health = await get(port, '/healthz');
+  assert.equal(health.status, 200);
+});

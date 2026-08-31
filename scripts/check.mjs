@@ -17,11 +17,14 @@ const required = ['Editorial questions for a changing industry', 'Read the Episo
 const themes = ['Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution'];
 const failures = [...required, ...themes].filter((term) => !html.toLowerCase().includes(term.toLowerCase())).map((term) => `Missing required copy: ${term}`);
 
-const forbiddenNarration = /\b(?:preview|demo|draft|planned|planning|upcoming|coming soon|in[ -]development|not (?:yet )?open|link pending|links will appear|when (?:activated|an audience question opens))\b/i;
-const unavailableProducts = /\b(?:Spotify|Apple Music|YouTube|LinkedIn)\b/i;
+// Demo presentation is allowed only under the explicit labeling contract:
+// every demo mention must be an explicit DEMO label, and platform destinations
+// appear only in the hero dock as named, pending destinations.
+const forbiddenNarration = /\b(?:preview|draft|planned|planning|upcoming|coming soon|in[ -]development|not (?:yet )?open|link pending|links will appear|when (?:activated|an audience question opens))\b/i;
+const unlabeledDemo = /\bdemo\b(?![-— ]| ?—)/i;
 for (const [file, source] of Object.entries(publicSources)) {
   if (forbiddenNarration.test(source)) failures.push(`${file} contains roadmap or pre-release narration.`);
-  if (unavailableProducts.test(source)) failures.push(`${file} exposes an unavailable platform or contributor product.`);
+  if (file.endsWith('.html') && unlabeledDemo.test(source.replace(/DEMO[-— ]/gi, ''))) failures.push(`${file} mentions demo data without an explicit DEMO label.`);
 }
 for (const forbidden of ['lorem ipsum', 'placeholder', 'game-changing', 'rapidly evolving landscape', 'leaderboard', 'linear-gradient', 'radial-gradient']) if ((html + css).toLowerCase().includes(forbidden)) failures.push(`Forbidden pattern: ${forbidden}`);
 
@@ -42,7 +45,10 @@ for (const [file, expected] of Object.entries(assets)) {
 if (!/<fieldset[\s\S]*?<legend[\s\S]*?type="radio"[\s\S]*?value="yes"[\s\S]*?type="radio"[\s\S]*?value="no"[\s\S]*?<\/fieldset>/.test(html)) failures.push('Private forecast must use YES/NO radios in a fieldset with a legend.');
 if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Each of the eight question cards must expose private YES and NO controls.');
 if (/type="range"|probability-output|min="1" max="99"/.test(html)) failures.push('Numeric probability slider must be absent.');
-if (/<table[^>]+class="[^"]*\bledger\b/i.test(html)) failures.push('Homepage must not publish unavailable forecast ledger rows.');
+if (!/class="hero-dock"/.test(html)) failures.push('Homepage must include the hero platform dock with named destinations.');
+if (!/hero-dock[^>]*>.*?<li class="spotify">Spotify<\/li><li class="apple-music">Apple Music<\/li><li class="youtube">YouTube<\/li>/s.test(html)) failures.push('Hero dock must name Spotify, Apple Music, and YouTube destinations.');
+if (!/class="demo-banner"/.test(html)) failures.push('Homepage must include the explicit demo banner.');
+if (!/data-demo-ledger/.test(html)) failures.push('Homepage must include the demo forecast ledger element.');
 for (const selector of ['preview-stamp', 'distribution', 'platform-card', 'contributors', 'commentary-app', 'linkedin-login']) if (new RegExp(`class="[^"]*\\b${selector}\\b|id="${selector}"`).test(html)) failures.push(`Homepage must omit unavailable ${selector}.`);
 
 for (const metadata of ['rel="canonical"', 'name="twitter:title"', 'name="twitter:description"', 'name="twitter:image"', 'name="twitter:image:alt"', 'property="og:site_name"', 'property="og:locale"', 'name="color-scheme"', 'name="referrer"', 'rel="manifest"', 'rel="apple-touch-icon"']) if (!html.includes(metadata)) failures.push(`Missing metadata: ${metadata}`);
