@@ -42,6 +42,10 @@ async function newPage() {
   return page;
 }
 
+function browserLaunchArgs(port) {
+  return ['--no-sandbox', '--disable-dev-shm-usage', `--explicitly-allowed-ports=${port}`];
+}
+
 async function availablePort() {
   const probe = createServer();
   await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
@@ -59,7 +63,7 @@ before(async () => {
     child.once('exit', (code) => reject(new Error(`Server exited (${code})`)));
   });
   origin = `http://127.0.0.1:${port}`;
-  browser = await puppeteer.launch({ executablePath: browserExecutablePath(), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  browser = await puppeteer.launch({ executablePath: browserExecutablePath(), headless: true, args: browserLaunchArgs(port) });
 });
 
 after(async () => {
@@ -69,6 +73,10 @@ after(async () => {
     child.kill();
     await exited;
   }
+});
+
+test('browser launch explicitly permits the randomized local server port', () => {
+  assert.equal(browserLaunchArgs(5061).includes('--explicitly-allowed-ports=5061'), true);
 });
 
 test('binary private call is keyboard operable, local-only, and clearable', async () => {
