@@ -68,12 +68,109 @@ const questionCards = [...document.querySelectorAll('.motion-card-link')];
 const motionCards = [...document.querySelectorAll('.motion-card')];
 const questionRows = [...document.querySelectorAll('.season-ledger > li')];
 const questionCalls = [...document.querySelectorAll('input[data-question-call]')];
+const cardExpansion = matchMedia('(min-width: 701px)');
+let expandedCard = null;
 questionRows.forEach((row, index) => { row.id = `question-${String(index + 1).padStart(2, '0')}`; });
-questionCards.forEach((card) => card.addEventListener('click', () => {
-  const row = document.querySelector(card.hash);
-  const disclosure = row?.querySelector('details');
-  if (disclosure) disclosure.open = true;
-}));
+
+function createCardContext(card) {
+  const questionId = card.dataset.questionId;
+  const context = document.createElement('section');
+  const body = document.createElement('div');
+  const close = document.createElement('button');
+  const state = document.createElement('p');
+  context.className = 'card-context';
+  context.id = `${questionId}-context`;
+  context.setAttribute('aria-label', 'Full draft question context');
+  close.type = 'button';
+  close.dataset.cardClose = '';
+  close.textContent = '× Close context';
+  state.className = 'card-context-state';
+  state.textContent = 'Draft contract · criteria in review · not open';
+  body.className = 'episode-draft card-context-body';
+
+  const row = document.querySelector(`#${questionId}`);
+  const source = row?.querySelector('.episode-draft');
+  if (source) {
+    [...source.children].forEach((child) => body.append(child.cloneNode(true)));
+  } else {
+    const question = document.querySelector('#forecast .question h3');
+    const why = document.querySelector('#forecast .question p:has(strong)');
+    const contract = document.querySelector('#forecast .contract dl');
+    if (question) {
+      const fullQuestion = document.createElement('p');
+      fullQuestion.className = 'draft-question';
+      fullQuestion.textContent = question.textContent;
+      body.append(fullQuestion);
+    }
+    if (why) body.append(why.cloneNode(true));
+    if (contract) body.append(contract.cloneNode(true));
+  }
+  context.append(close, state, body);
+  return context;
+}
+
+function collapseCard(card = expandedCard, returnFocus = false) {
+  if (!card) return;
+  const link = card.querySelector('.motion-card-link');
+  card.classList.remove('is-expanded');
+  card.querySelector('.card-context')?.remove();
+  link.setAttribute('aria-expanded', 'false');
+  link.removeAttribute('aria-controls');
+  const cue = link.querySelector('.card-open-cue');
+  if (cue) cue.textContent = 'Open full context →';
+  card.parentElement.classList.remove('has-expanded');
+  motionCards.forEach((neighbor) => neighbor.style.removeProperty('--card-shift'));
+  expandedCard = null;
+  if (returnFocus) link.focus();
+}
+
+function expandCard(card) {
+  if (expandedCard && expandedCard !== card) collapseCard(expandedCard);
+  const rail = card.parentElement;
+  const railCenter = rail.getBoundingClientRect().left + rail.getBoundingClientRect().width / 2;
+  motionCards.forEach((neighbor) => {
+    if (neighbor === card) return;
+    const rect = neighbor.getBoundingClientRect();
+    neighbor.style.setProperty('--card-shift', rect.left + rect.width / 2 < railCenter ? '-420px' : '420px');
+  });
+  const context = createCardContext(card);
+  const link = card.querySelector('.motion-card-link');
+  rail.classList.add('has-expanded');
+  card.classList.add('is-expanded');
+  card.append(context);
+  link.setAttribute('aria-expanded', 'true');
+  link.setAttribute('aria-controls', context.id);
+  const cue = link.querySelector('.card-open-cue');
+  if (cue) cue.textContent = 'Context open';
+  context.querySelector('[data-card-close]').addEventListener('click', () => collapseCard(card, true));
+  expandedCard = card;
+}
+
+questionCards.forEach((link) => {
+  link.setAttribute('aria-expanded', 'false');
+  const cue = document.createElement('span');
+  cue.className = 'card-open-cue';
+  cue.setAttribute('aria-hidden', 'true');
+  cue.textContent = 'Open full context →';
+  link.append(cue);
+  link.addEventListener('click', (event) => {
+    const card = link.closest('.motion-card');
+    const row = document.querySelector(link.hash);
+    const disclosure = row?.querySelector('details');
+    if (disclosure) disclosure.open = true;
+    if (!cardExpansion.matches) return;
+    event.preventDefault();
+    if (card.classList.contains('is-expanded')) collapseCard(card, true);
+    else expandCard(card);
+  });
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && expandedCard) collapseCard(expandedCard, true);
+});
+cardExpansion.addEventListener?.('change', (event) => {
+  if (!event.matches) collapseCard();
+});
+
 motionCards.forEach((card) => {
   const reset = () => {
     card.style.removeProperty('--card-pointer-x');
