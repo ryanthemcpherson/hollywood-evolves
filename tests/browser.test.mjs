@@ -98,6 +98,26 @@ test('mobile navigation remains visible and the inert Menu control stays hidden 
   await page.close();
 });
 
+test('editorial cover leads with premise, actions, portrait, and production timing', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1440, height: 1000 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const cover = await page.$eval('.hero', (hero) => ({
+    headlineLines: [...hero.querySelectorAll('h1 > *')].map((line) => line.textContent.trim()),
+    portrait: hero.querySelector('.hero-portrait img')?.getAttribute('src'),
+    actions: [...hero.querySelectorAll('.hero-actions a')].map((link) => link.textContent.trim()),
+    timing: hero.querySelector('.release-line')?.textContent,
+    motif: hero.querySelector('.hero-rail')?.textContent,
+  }));
+  assert.deepEqual(cover.headlineLines, ['Hollywood keeps', 'changing the system.', 'We keep the record.']);
+  assert.match(cover.portrait, /assets\/ian-mcpherson\.webp$/);
+  assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↘']);
+  assert.match(cover.timing, /November 2026/);
+  assert.match(cover.timing, /January 2027/);
+  assert.match(cover.motif, /Past\s*Present\s*Forecast/);
+  await page.close();
+});
+
 test('forecast ledger is a native table with a screen-reader caption and scoped headers', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
