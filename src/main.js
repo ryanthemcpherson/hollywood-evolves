@@ -47,7 +47,7 @@ instrumentTabs.forEach((tab) => {
     selectInstrumentState(instrumentTabs[next].dataset.instrumentTab, true);
   });
 });
-selectInstrumentState('capture');
+selectInstrumentState('evidence');
 
 const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
