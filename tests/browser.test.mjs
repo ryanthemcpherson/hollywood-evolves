@@ -620,6 +620,86 @@ test('every fully visible moving card exposes clickable question, YES, and NO ta
   await page.close();
 });
 
+test('question-card YES and NO controls advertise pointer interaction and hover state', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('.question-rail', (rail) => rail.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  const rail = await page.$('.question-rail');
+  const railBox = await rail.boundingBox();
+  await page.mouse.move(railBox.x + 4, railBox.y + 4);
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].every((card) => getComputedStyle(card).animationPlayState === 'paused'));
+  const questionId = await page.evaluate(() => [...document.querySelectorAll('.motion-card')].find((card) => {
+    const label = card.querySelector('.card-call label:first-of-type');
+    const rect = label.getBoundingClientRect();
+    return card.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+  })?.dataset.questionId);
+  const label = await page.$(`.motion-card[data-question-id="${questionId}"] .card-call label:first-of-type`);
+  await label.hover();
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  const cue = await label.evaluate((element) => {
+    const span = element.querySelector('span');
+    const probe = document.createElement('i');
+    probe.style.background = 'var(--blue)';
+    document.body.append(probe);
+    const signal = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return {
+      labelCursor: getComputedStyle(element).cursor,
+      spanCursor: getComputedStyle(span).cursor,
+      background: getComputedStyle(span).backgroundColor,
+      signal,
+    };
+  });
+  assert.equal(cue.labelCursor, 'pointer');
+  assert.equal(cue.spanCursor, 'pointer');
+  assert.equal(cue.background, cue.signal);
+  await page.close();
+});
+
+test('question-card link expands full context, displaces neighbors, and closes with Escape', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 1366, height: 768 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const selector = '.motion-card[data-question-id="question-03"]';
+  const before = await page.$eval(selector, (card) => card.getBoundingClientRect().width);
+  await page.focus(`${selector} .motion-card-link`);
+  await page.keyboard.press('Enter');
+  const expanded = await page.$eval(selector, (card) => {
+    const context = card.querySelector('.card-context');
+    const neighbors = [...card.parentElement.querySelectorAll('.motion-card:not(.is-expanded)')];
+    return {
+      expanded: card.classList.contains('is-expanded'),
+      ariaExpanded: card.querySelector('.motion-card-link').getAttribute('aria-expanded'),
+      width: card.getBoundingClientRect().width,
+      context: context?.textContent.replace(/\s+/g, ' ').trim(),
+      closeButton: context?.querySelector('button[data-card-close]')?.textContent.trim(),
+      shifts: neighbors.map((neighbor) => Number.parseFloat(neighbor.style.getPropertyValue('--card-shift'))),
+      neighborsInert: neighbors.every((neighbor) => getComputedStyle(neighbor).pointerEvents === 'none'),
+    };
+  });
+  assert.equal(expanded.expanded, true);
+  assert.equal(expanded.ariaExpanded, 'true');
+  assert.ok(expanded.width > before * 1.8, `expanded width ${expanded.width}px did not substantially exceed ${before}px`);
+  assert.match(expanded.context, /Why it matters:/);
+  assert.match(expanded.context, /Draft contract · criteria in review · not open/);
+  assert.match(expanded.context, /YES threshold/);
+  assert.match(expanded.context, /Resolve by/);
+  assert.match(expanded.context, /Evidence \/ resolver/);
+  assert.equal(expanded.closeButton, '× Close context');
+  assert.ok(expanded.shifts.every((shift) => Math.abs(shift) >= 360));
+  assert.equal(expanded.neighborsInert, true);
+  await page.keyboard.press('Escape');
+  const collapsed = await page.$eval(selector, (card) => ({
+    expanded: card.classList.contains('is-expanded'),
+    ariaExpanded: card.querySelector('.motion-card-link').getAttribute('aria-expanded'),
+    context: Boolean(card.querySelector('.card-context')),
+    focused: document.activeElement === card.querySelector('.motion-card-link'),
+  }));
+  assert.deepEqual(collapsed, { expanded: false, ariaExpanded: 'false', context: false, focused: true });
+  await page.close();
+});
+
 test('episode model follows the three-forecast system brief', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
