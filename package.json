@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "vite build",
     "check": "node scripts/check.mjs",
+    "audience:tools": "node scripts/audience-tools.mjs",
     "test": "npm run check && npm run build && node --test tests/*.test.mjs",
     "start": "node server.mjs"
   },

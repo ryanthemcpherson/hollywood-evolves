@@ -3,5 +3,6 @@ dist/
 .env
 .env.*
 !.env.example
+.data/
 .DS_Store
 npm-debug.log*

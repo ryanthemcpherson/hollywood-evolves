@@ -151,7 +151,7 @@ Current LLMs can under-react or update inconsistently when given new evidence, s
 - Show sample size beside every agent, category, and season score. Early rankings are provisional.
 - Bound audience and system inputs to 1–99%, avoiding false claims of certainty.
 
-The headline episode forecast should remain one consequential question. Optional fast-resolving side questions can create feedback and calibration reps, but they should not crowd the episode or dilute its main claim.
+Each episode should carry three forecasts: one consequential structural question, one medium-horizon operating question, and one fast-resolving question. Keep one as the headline forecast so the supporting questions create feedback and calibration reps without diluting the episode's main claim.
 
 ## Anti-slop editorial pipeline
 
@@ -172,7 +172,7 @@ Banned patterns: “rapidly evolving landscape,” “at the intersection of,”
 
 Do not build the full autonomous system first.
 
-- One question (Episode 01)
+- Three questions (Episode 01): structural, operating, and fast-resolving
 - Five evidence lanes
 - Three to five independent forecasts
 - One deliberation round

@@ -12,15 +12,16 @@ async function availablePort() {
   return port;
 }
 
-function get(port, path, method = 'GET') {
+function get(port, path, method = 'GET', body = null, requestHeaders = {}) {
   return new Promise((resolve, reject) => {
-    const req = request({ host: '127.0.0.1', port, path, method }, (res) => {
+    const req = request({ host: '127.0.0.1', port, path, method, headers: requestHeaders }, (res) => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', (chunk) => { body += chunk; });
       res.on('end', () => resolve({ status: res.statusCode, body, headers: res.headers }));
     });
     req.on('error', reject);
+    if (body !== null) req.write(body);
     req.end();
   });
 }
@@ -90,6 +91,45 @@ test('methods other than GET and HEAD are rejected', async (t) => {
   assert.equal(response.status, 405);
   assert.equal(response.body, 'Method Not Allowed');
   assert.equal(response.headers.allow, 'GET, HEAD');
+});
+
+test('draft question API publishes metadata and empty source-separated aggregates only', async (t) => {
+  const { port } = await startServer(t);
+  const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1');
+  assert.equal(response.status, 200);
+  assert.equal(response.headers['cache-control'], 'no-store');
+  const payload = JSON.parse(response.body);
+  assert.equal(payload.question.id, 'he-episode-01-customer-evolution-v1');
+  assert.equal(payload.question.state, 'draft');
+  assert.equal(payload.question.opensAt, null);
+  assert.equal(payload.results.directForecasts.total, 0);
+  assert.equal(payload.results.linkedInReactions.total, 0);
+  assert.doesNotMatch(response.body, /browserHash|reactionHash|idempotencyHash/);
+});
+
+test('draft question rejects submissions and LinkedIn imports require an admin token', async (t) => {
+  const { port } = await startServer(t);
+  const direct = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/responses', 'POST', JSON.stringify({
+    choice: 'yes',
+    confidence: 75,
+    browserToken: 'browser-token-00000001',
+    idempotencyKey: 'response-key-00000001',
+    source: 'qr',
+    consent: true,
+  }), { 'content-type': 'application/json' });
+  assert.equal(direct.status, 409);
+  assert.match(JSON.parse(direct.body).error, /not open/i);
+
+  const imported = await get(port, '/api/linkedin/import', 'POST', '{}', { 'content-type': 'application/json' });
+  assert.equal(imported.status, 401);
+});
+
+test('direct poll route resolves only immutable configured question IDs', async (t) => {
+  const { port } = await startServer(t);
+  const poll = await get(port, '/poll/he-episode-01-customer-evolution-v1?src=linkedin');
+  assert.equal(poll.status, 200);
+  assert.match(poll.body, /Audience signal · Hollywood Evolves/);
+  assert.equal((await get(port, '/poll/not-a-question')).status, 404);
 });
 
 test('encoded traversal cannot read from a sibling of the dist directory', async (t) => {

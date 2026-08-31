@@ -6,7 +6,7 @@ A website and evidence-backed forecasting system for Ian McPherson's executive p
 
 **Past → present → probability → accountability.**
 
-Each episode explains a prior industry transition, examines today's operating signals, and closes with one resolvable forecast. Guests and the audience publish probabilities; the project preserves the evidence, assumptions, revisions, and eventual outcome.
+Each episode explains a prior industry transition, examines today's operating signals, and carries three resolvable forecasts: one structural, one operating, and one fast-resolving. One remains the headline forecast. Guests and the audience publish probabilities; the project preserves the evidence, assumptions, revisions, and eventual outcome.
 
 ## Current scope
 
@@ -49,9 +49,13 @@ The production site is written to `dist/`.
 
 The homepage is a subject-first, segmented editorial scroll. Its opening pairs Hollywood's next operating system with a code-built cinematic forecast instrument: a layered camera lens, viewfinder, signal ribbon, production-to-audience path, audience plane, and explicitly unresolved gate. It uses no subject image or fabricated value. `PAST 01` and `PRESENT 02` are independent anchored halves of one combined split chapter on desktop and stack on mobile; an explicit keyboard-reachable jump leads to `FORECAST 03`. One 12-column container aligns the masthead and every chapter.
 
-Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter preserves the empty Guest, Community, and Research System states and local-only binary preview. The season introduces all eight approved questions in a CSS 3D discovery field with truthful `YES — / NO —` values, then preserves the compact ruled index and seven native disclosure contracts below. Motion pauses during hover or keyboard focus and becomes a static scrollable field when reduced motion is requested.
+Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter preserves the empty Guest, Community, and Research System states and local-only binary preview. The season introduces an early pool of eight approved questions in a CSS 3D discovery field with clickable, browser-local `YES / NO` calls, then preserves the compact ruled index and seven native disclosure contracts below. The pool does not imply one question per episode; the operating brief calls for three. Motion pauses during hover or keyboard focus and becomes a static scrollable field when reduced motion is requested.
 
 The interface progressively enhances its mobile menu, local-only binary call, sharing tools, and three-step hero instrument. The instrument’s Capture, Forecast, and Resolve tabs update a truthful process readout and visual focus; fine pointers add a restrained, resettable perspective response. With JavaScript disabled, primary navigation and all explanatory instrument copy remain available, and native `details` elements still expose draft resolution contracts. Reduced-motion preferences disable the instrument response and all automated question-field motion.
+
+The repository also includes an owned audience-signal intake for immutable question IDs: `/poll/<question-id>?src=<source>` and the compact `/?poll=<question-id>&src=<source>` form. Open questions use an accessible optional modal with explicit Yes/No, optional 1–99% confidence, one-response-per-browser safeguards, aggregate-only public results, source attribution, rate limits, idempotency, and an audit trail. Direct forecasts and LinkedIn reaction signals remain separate. Episode 01 is still `draft`; its poll route truthfully says it is not open and accepts no submissions. See `docs/audience-signal-intake.md` for the data model, LinkedIn permission boundary/manual CSV fallback, opening checklist, and deployment plan.
+
+The planned written-commentary login is Sign in with LinkedIn using OpenID Connect with the minimal `openid profile email` scopes. It authenticates a LinkedIn account but is not identity verification; verified-industry labels require separate editorial review. The preview does not yet implement accounts or accept commentary submissions.
 
 `npm test` is the complete quality gate. It runs content and metadata assertions, validates the icon inventory and exact PNG dimensions, builds the Vite site, starts temporary local servers, verifies traversal handling/security headers/legal routes/asset media types, and drives the system `/usr/bin/chromium` through Puppeteer Core. Browser checks cover the binary local forecast, storage-denied fallback, menu keyboard behavior and appropriate focus placement, minimum 44×44 CSS-pixel targets, horizontal reflow, and axe-core WCAG 2.2 Level A/AA rules (including contrast) at representative widths. Each test-owned server and browser is closed during teardown; no browser download is used.
 
@@ -65,7 +69,7 @@ The homepage keeps only compact footer links to static Accessibility, Privacy, a
 - Start: `npm start`
 - Health check: `/healthz`
 
-The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, serves the homepage only at `/`, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for unknown paths.
+The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, serves the homepage only at `/`, resolves configured immutable poll routes, exposes aggregate question APIs, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for unknown paths. Before any question opens, mount persistent storage at `/data`, set `AUDIENCE_DATA_PATH=/data/audience-signals.json`, and provision both secrets in `.env.example`; the file-backed implementation must run as one replica.
 
 ```bash
 npm run build

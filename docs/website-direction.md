@@ -46,6 +46,8 @@ One large card, not a carousel:
 
 Before real data exists, show **Preview — not yet open**. Never manufacture aired status, percentages, trend values, or comments.
 
+Written commentary will require Sign in with LinkedIn using OpenID Connect. This authenticates control of a LinkedIn account; it is not proof of real-world identity. Any verified-industry designation requires a separate editorial review, and submissions remain closed until moderation, rate limiting, abuse controls, secure sessions, and updated privacy disclosures are implemented.
+
 ### 3. Episode format
 
 A single combined split chapter on desktop, stacked on mobile:
@@ -56,7 +58,7 @@ One concise subject statement and controlled diagram per historical act, followe
 
 ### 4. Season one
 
-Lead with a controlled 3D discovery field for the eight approved questions, with unpublished `YES — / NO —` states and stable links to their contracts. Follow with eight compact rows containing number, theme, and honest question status. Do not write eight long AI summaries on the homepage.
+Lead with a controlled 3D discovery field for the early pool of eight approved questions, with browser-local `YES / NO` calls and stable links to their contracts. Explicitly distinguish this pool from the three-forecast episode mix: one structural, one operating, and one fast-resolving. Follow with eight compact rows containing number, theme, and honest question status. Do not write eight long AI summaries on the homepage.
 
 ### 5. Why Ian / About the host
 

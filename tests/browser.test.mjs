@@ -11,6 +11,7 @@ let origin;
 
 async function newPage() {
   const page = await browser.newPage();
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
@@ -59,6 +60,71 @@ test('binary private call is keyboard operable, local-only, and clearable', asyn
   await page.click('#reset-forecast');
   assert.equal(await page.evaluate(() => localStorage.getItem('he-private-forecast')), null);
   assert.equal(await page.$$eval('input[name="private-forecast"]:checked', (nodes) => nodes.length), 0);
+  await page.close();
+});
+
+test('draft poll magic link is truthful, accessible, and does not solicit a response', async () => {
+  const page = await newPage();
+  await page.goto(`${origin}/poll/he-episode-01-customer-evolution-v1?src=linkedin`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.querySelector('#poll-title')?.textContent.includes('Will at least three'));
+  const state = await page.evaluate(() => ({
+    title: document.querySelector('#poll-title')?.textContent.trim(),
+    status: document.querySelector('#poll-state')?.textContent.trim(),
+    dialogOpen: document.querySelector('#audience-poll')?.open,
+    resultsHidden: document.querySelector('#poll-results')?.hidden,
+    source: document.querySelector('[data-poll-root]')?.dataset.source,
+  }));
+  assert.match(state.title, /ad-supported plans/);
+  assert.match(state.status, /draft.*not open/i);
+  assert.equal(state.dialogOpen, false);
+  assert.equal(state.resultsHidden, true);
+  assert.equal(state.source, 'linkedin');
+  await page.close();
+});
+
+test('homepage query deep link preserves question ID and source attribution', async () => {
+  const page = await newPage();
+  await page.goto(`${origin}/?poll=he-episode-01-customer-evolution-v1&src=qr`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => location.pathname.startsWith('/poll/'));
+  assert.equal(await page.evaluate(() => `${location.pathname}${location.search}`), '/poll/he-episode-01-customer-evolution-v1?src=qr');
+  await page.close();
+});
+
+test('open poll modal is optional, explicit, accessible, and one-response-per-browser', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => {
+    let recorded = false;
+    window.fetch = async (url, options = {}) => {
+      if (options.method === 'POST') {
+        window.__pollSubmission = JSON.parse(options.body);
+        recorded = true;
+        return new Response(JSON.stringify({ accepted: true }), { status: 201, headers: { 'content-type': 'application/json' } });
+      }
+      return new Response(JSON.stringify({
+        question: { id: 'he-episode-01-customer-evolution-v1', prompt: 'Will this open test resolve YES?', state: 'open', opensAt: '2026-08-01T00:00:00.000Z', closesAt: '2026-09-01T00:00:00.000Z' },
+        results: {
+          directForecasts: { total: recorded ? 1 : 0, yes: recorded ? 1 : 0, no: 0, averageConfidence: recorded ? 81 : null, bySource: {} },
+          linkedInReactions: { total: 0, yes: 0, no: 0, byCampaign: {} },
+        },
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+  });
+  await page.goto(`${origin}/poll/he-episode-01-customer-evolution-v1?src=newsletter`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.querySelector('#audience-poll')?.open);
+  assert.equal(await page.$eval('#audience-poll', (dialog) => document.activeElement === dialog || dialog.contains(document.activeElement)), true);
+  const controls = await page.$$eval('[data-choice], #poll-confidence, .poll-submit, .poll-skip, .poll-close', (nodes) => nodes.map((node) => ({ text: node.textContent.trim(), width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
+  assert.ok(controls.every(({ width, height }) => width >= 44 && height >= 44));
+  await page.click('[data-choice="yes"]');
+  await page.type('#poll-confidence', '81');
+  await page.click('.poll-submit');
+  await page.waitForFunction(() => !document.querySelector('#audience-poll').open);
+  const submission = await page.evaluate(() => window.__pollSubmission);
+  assert.deepEqual({ choice: submission.choice, confidence: submission.confidence, source: submission.source, consent: submission.consent }, { choice: 'yes', confidence: 81, source: 'newsletter', consent: true });
+  assert.ok(submission.browserToken.length >= 16);
+  assert.ok(submission.idempotencyKey.length >= 16);
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  assert.equal(await page.$eval('#audience-poll', (dialog) => dialog.open), false);
   await page.close();
 });
 
@@ -372,14 +438,37 @@ test('past and present share one responsive split chapter with a forecast jump',
   await page.close();
 });
 
-test('eight truthful motion cards link to stable native question details', async () => {
+test('eight truthful motion cards link to stable native question details and offer private YES/NO calls', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  const cards = await page.$$eval('.motion-card', (nodes) => nodes.map((card) => ({ href: card.hash, target: Boolean(document.querySelector(card.hash)), text: card.textContent.replace(/\s+/g, ' ').trim() })));
+  const cards = await page.$$eval('.motion-card', (nodes) => nodes.map((card) => {
+    const link = card.querySelector('.motion-card-link');
+    return {
+      href: link?.hash,
+      target: Boolean(link?.hash && document.querySelector(link.hash)),
+      text: card.textContent.replace(/\s+/g, ' ').trim(),
+      calls: [...card.querySelectorAll('input[data-question-call]')].map((input) => input.value),
+    };
+  }));
   assert.equal(cards.length, 8);
   assert.equal(new Set(cards.map(({ href }) => href)).size, 8);
-  assert.ok(cards.every(({ target, text }) => target && /YES\s+—/.test(text) && /NO\s+—/.test(text) && /criteria in review/.test(text) && /not open/.test(text)));
-  await page.$eval('.motion-card[href="#question-02"]', (card) => card.click());
+  assert.ok(cards.every(({ target, text, calls }) => target && /YES\s+—/.test(text) && /NO\s+—/.test(text) && /criteria in review/.test(text) && /not open/.test(text) && calls.join(',') === 'yes,no'));
+  await page.waitForFunction(() => {
+    const card = document.querySelector('.motion-card[data-question-id="question-01"]');
+    const rail = document.querySelector('.question-rail');
+    const cardRect = card.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
+    return getComputedStyle(card).pointerEvents !== 'none' && cardRect.left >= railRect.left && cardRect.right <= railRect.right;
+  });
+  await page.hover('.question-rail');
+  await page.click('.motion-card[data-question-id="question-01"] .card-call label:first-of-type');
+  await page.focus('.motion-card[data-question-id="question-02"] input[value="no"]');
+  await page.keyboard.press('Space');
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('he-private-question-calls'))), { 'question-01': 'yes', 'question-02': 'no' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.equal(await page.$eval('.motion-card[data-question-id="question-01"] input[value="yes"]', (input) => input.checked), true);
+  assert.equal(await page.$eval('.motion-card[data-question-id="question-02"] input[value="no"]', (input) => input.checked), true);
+  await page.$eval('.motion-card-link[href="#question-02"]', (link) => link.click());
   assert.equal(await page.$eval('#question-02 details', (el) => el.open), true);
   const animation = await page.$eval('.motion-card', (el) => ({ running: getComputedStyle(el).animationName !== 'none', paused: getComputedStyle(el.closest('.question-rail')).getPropertyValue('--unused') }));
   assert.equal(animation.running, true);
@@ -390,6 +479,18 @@ test('eight truthful motion cards link to stable native question details', async
   await reduced.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.ok((await reduced.$$eval('.motion-card', (nodes) => nodes.map((el) => getComputedStyle(el).animationName))).every((name) => name === 'none'));
   await reduced.close();
+});
+
+test('episode model follows the three-forecast system brief', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const text = await page.$eval('#season', (section) => section.textContent.replace(/\s+/g, ' '));
+  assert.match(text, /three forecasts per episode/i);
+  assert.match(text, /structural/i);
+  assert.match(text, /operating/i);
+  assert.match(text, /fast-resolving/i);
+  assert.match(text, /question pool/i);
+  await page.close();
 });
 
 for (const [width, height] of [[320, 844], [390, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
