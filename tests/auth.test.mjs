@@ -8,12 +8,12 @@ const issuer = 'https://www.linkedin.com';
 const clientId = 'linkedin-client-id';
 const redirectUri = 'https://hollywoodevolves.mcpherson.app/auth/linkedin/callback';
 
-async function oidcFixture({ nonce = 'expected-nonce', tokenNonce = nonce, audience = clientId, issuedAt = Math.floor(Date.now() / 1000) } = {}) {
+async function oidcFixture({ nonce = 'expected-nonce', tokenNonce = nonce, audience = clientId, authorizedParty, issuedAt = Math.floor(Date.now() / 1000) } = {}) {
   const { publicKey, privateKey } = await generateKeyPair('RS256');
   const publicJwk = await exportJWK(publicKey);
   publicJwk.kid = 'test-key';
   publicJwk.use = 'sig';
-  const idToken = await new SignJWT({ sub: 'linkedin-sub-123', name: 'Ada Lovelace', picture: 'https://media.example/ada.jpg', email: 'ada@example.com', email_verified: true, nonce: tokenNonce })
+  const idToken = await new SignJWT({ sub: 'linkedin-sub-123', name: 'Ada Lovelace', picture: 'https://media.example/ada.jpg', email: 'ada@example.com', email_verified: true, nonce: tokenNonce, ...(authorizedParty === undefined ? {} : { azp: authorizedParty }) })
     .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
     .setIssuer(issuer)
     .setAudience(audience)
@@ -79,6 +79,18 @@ test('rejects a stale ID token even when its expiration is still in the future',
   const fixture = await oidcFixture({ issuedAt: Math.floor(Date.now() / 1000) - 3600 });
   const client = new LinkedInOidcClient({ clientId, clientSecret: 'secret', redirectUri, fetch: fixture.fetch });
   await assert.rejects(client.redeem({ code: 'authorization-code', nonce: fixture.nonce }), /iat|token age/i);
+});
+
+test('requires the exact authorized party when an ID token has multiple audiences', async () => {
+  for (const authorizedParty of [undefined, 'other-client']) {
+    const fixture = await oidcFixture({ audience: [clientId, 'another-audience'], authorizedParty });
+    const client = new LinkedInOidcClient({ clientId, clientSecret: 'secret', redirectUri, fetch: fixture.fetch });
+    await assert.rejects(client.redeem({ code: 'authorization-code', nonce: fixture.nonce }), /authorized party|azp/i);
+  }
+
+  const fixture = await oidcFixture({ audience: [clientId, 'another-audience'], authorizedParty: clientId });
+  const client = new LinkedInOidcClient({ clientId, clientSecret: 'secret', redirectUri, fetch: fixture.fetch });
+  assert.equal((await client.redeem({ code: 'authorization-code', nonce: fixture.nonce })).sub, 'linkedin-sub-123');
 });
 
 test('creates opaque server-side sessions, issues tab-stable CSRF tokens, and revokes logout', () => {

@@ -11,6 +11,7 @@ let origin;
 
 async function newPage() {
   const page = await browser.newPage();
+  await page.setBypassCSP(true);
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
   await page.setRequestInterception(true);
   page.on('request', (request) => {
@@ -508,6 +509,63 @@ test('eight truthful motion cards link to stable native question details and off
   await reduced.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.ok((await reduced.$$eval('.motion-card', (nodes) => nodes.map((el) => getComputedStyle(el).animationName))).every((name) => name === 'none'));
   await reduced.close();
+});
+
+test('question-card inspection pauses in place and tracks the pointer without moving the target', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query) => query === '(hover: hover) and (pointer: fine)' ? { matches: true, media: query, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent() { return true; } } : nativeMatchMedia(query);
+  });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.$eval('.question-rail', (rail) => rail.scrollIntoView({ block: 'center', behavior: 'instant' }));
+  await page.waitForFunction(() => [...document.querySelectorAll('.motion-card')].some((card) => {
+    const rail = document.querySelector('.question-rail');
+    const cardRect = card.getBoundingClientRect();
+    const railRect = rail.getBoundingClientRect();
+    const center = document.elementFromPoint(cardRect.left + cardRect.width / 2, cardRect.top + cardRect.height / 2);
+    return getComputedStyle(card).pointerEvents !== 'none'
+      && cardRect.left >= railRect.left
+      && cardRect.right <= railRect.right
+      && card.contains(center);
+  }));
+  const questionId = await page.evaluate(() => [...document.querySelectorAll('.motion-card')].find((card) => {
+    const rect = card.getBoundingClientRect();
+    return getComputedStyle(card).pointerEvents !== 'none'
+      && card.contains(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
+  })?.dataset.questionId);
+  const card = await page.$(`.motion-card[data-question-id="${questionId}"]`);
+  const box = await card.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.waitForFunction((id) => getComputedStyle(document.querySelector(`.motion-card[data-question-id="${id}"]`)).animationPlayState === 'paused', {}, questionId);
+  const before = await card.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, transform: getComputedStyle(element).transform };
+  });
+  await new Promise((resolve) => setTimeout(resolve, 220));
+  const after = await card.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      left: rect.left,
+      top: rect.top,
+      transform: style.transform,
+      animationName: style.animationName,
+      animationPlayState: style.animationPlayState,
+      pointerX: element.style.getPropertyValue('--card-pointer-x'),
+      pointerY: element.style.getPropertyValue('--card-pointer-y'),
+      markerOpacity: getComputedStyle(element, '::before').opacity,
+    };
+  });
+  assert.ok(Math.abs(after.left - before.left) < 1, `card moved ${after.left - before.left}px horizontally on hover`);
+  assert.ok(Math.abs(after.top - before.top) < 1, `card moved ${after.top - before.top}px vertically on hover`);
+  assert.equal(after.transform, before.transform);
+  assert.equal(after.animationName, 'question-flow');
+  assert.equal(after.animationPlayState, 'paused');
+  assert.match(after.pointerX, /%$/);
+  assert.match(after.pointerY, /%$/);
+  assert.equal(after.markerOpacity, '1');
+  await page.close();
 });
 
 test('episode model follows the three-forecast system brief', async () => {
