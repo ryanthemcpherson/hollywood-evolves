@@ -98,7 +98,7 @@ Corners remain square. Fine rules, instrument geometry, and measured offsets are
 
 ## Components
 
-The approved wordmark is `/brand/wordmark.svg`; use it in every page header with the accessible name “Hollywood Evolves.” The approved monogram is `/brand/monogram.svg` and is the source for favicons and application icons. The approved social preview is `/brand/social-card.png` at 1200×630. The SVG source is kept beside it.
+The approved wordmark is `/brand/wordmark.svg`; use it on light surfaces with the accessible name “Hollywood Evolves.” Use `/brand/wordmark-inverse.svg` on ink or signal-red surfaces so the mark retains internal contrast; never synthesize an inverse mark with a CSS filter. The approved monogram is `/brand/monogram.svg` and is the source for favicons and application icons. The approved social preview is `/brand/social-card.png` at 1200×630. The SVG source is kept beside it.
 
 Primary actions use signal red on white. A page should normally expose one primary action at a time. Forecast and status components must distinguish known, unknown, and unresolved states with text, not color alone.
 

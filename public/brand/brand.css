@@ -17,8 +17,3 @@
   width: 174px;
   height: auto;
 }
-
-footer .brand-wordmark,
-.poll-header .brand-wordmark {
-  filter: brightness(0) invert(1);
-}
