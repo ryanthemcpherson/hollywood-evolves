@@ -284,9 +284,16 @@ test('homepage has one portrait and three explicit subject chapters', async () =
 
 test('homepage presents the hero dock, demo ledger, and no commentary controls', async () => {
   const page = await newPage();
+  await page.setViewport({ width: 390, height: 844 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   assert.equal(await page.$$eval('.distribution, .platform-card, #commentary-app, #linkedin-login', (nodes) => nodes.length), 0);
   assert.deepEqual(await page.$$eval('.hero-dock li', (nodes) => nodes.map((node) => node.textContent)), ['Spotify', 'Apple Music', 'YouTube']);
+  await page.evaluate(() => { document.documentElement.dataset.demoState = 'ready'; });
+  const dock = await page.$eval('.hero-dock', (node) => {
+    const bounds = node.getBoundingClientRect();
+    return { top: bounds.top, bottom: bounds.bottom, viewportHeight: innerHeight };
+  });
+  assert.ok(dock.top >= 0 && dock.bottom <= dock.viewportHeight, `hero dock must remain fully visible in the initial mobile screen with the demo disclosure: ${JSON.stringify(dock)}`);
   assert.deepEqual(await page.$$eval('[data-demo-ledger] tbody td:nth-child(2)', (nodes) => nodes.map((node) => node.textContent.trim())), ['—', '—', '—']);
   await page.close();
 });
