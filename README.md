@@ -2,19 +2,19 @@
 
 A website and evidence-backed forecasting system for Ian McPherson's executive podcast about how technology repeatedly reshapes Hollywood.
 
-## Product thesis
+## Product direction
 
 **Past → present → probability → accountability.**
 
-Each episode explains a prior industry transition, examines today's operating signals, and carries three resolvable forecasts: one structural, one operating, and one fast-resolving. One remains the headline forecast. Guests and the audience publish probabilities; the project preserves the evidence, assumptions, revisions, and eventual outcome.
+The historical product brief proposes that each episode explain a prior industry transition, examine current operating signals, and eventually carry resolvable forecasts with visible evidence and outcomes. That direction is not a statement of current public availability; `docs/PLAN.md` is the operating source of truth.
 
 ## Current scope
 
-1. A responsive editorial-cinema website for the podcast and its eight-question first-season slate.
-2. A forecast-question studio that turns broad themes into simple, measurable questions.
-3. A research pipeline that monitors industry news, company disclosures, regulation, and relevant research.
-4. A multi-agent forecasting process that produces scenarios and calibrated probabilities without publishing generic AI prose.
-5. A public forecast ledger comparing guest, audience, and research-system estimates over time.
+1. A responsive editorial website covering the program premise, Episode 01 question, eight editorial themes, host, and method.
+2. Browser-local `YES / NO` calls for the Episode 01 premise and theme questions; these choices are not submitted, published, or counted.
+3. A visible threshold, deadline, and evidence frame for each editorial question.
+4. Static accessibility, privacy, and terms pages.
+5. Fail-closed audience and commentary code whose public routes stay hidden until editorial and operational prerequisites are met.
 
 ## Source material
 
@@ -24,9 +24,9 @@ Each episode explains a prior industry transition, examines today's operating si
 - `docs/forecasting-research-sources.json` — machine-readable source list for that research reference.
 - Claude artifact prototype — reference only; its sample aired states, percentages, trend readings, and comments must not be treated as real data.
 
-## Preview website
+## Public website
 
-This repository contains the static Vite preview for `hollywoodevolves.mcpherson.app`. The preview is deliberately `noindex`; it contains no live episode, submitted audience data, or published forecast values. Episode 01 records in November 2026 and publishes in January 2027.
+This repository serves the standalone editorial site at `hollywoodevolves.mcpherson.app`. It contains no submitted audience data, fabricated probabilities, or published forecast values. Search indexing remains disabled until Episode 01's evidence-source contract, sitemap, and discovery behavior are approved together.
 
 ### Local development
 
@@ -47,11 +47,11 @@ The production site is written to `dist/`.
 
 ### Homepage composition
 
-The homepage is a subject-first, segmented editorial scroll. Its opening keeps “operating system” together and pairs it with a code-built cinematic forecast instrument: a layered camera lens, viewfinder, signal ribbon, and an immediately visible Evidence → Three views → Outcome path. It uses no subject image or fabricated value. A compact early distribution strip holds truthful, non-link placeholders for Spotify, Apple Music, and YouTube; Episode 01 links remain pending until the January 2027 publication. `PAST 01` and `PRESENT 02` are independent anchored halves of one combined split chapter on desktop and stack on mobile; an explicit keyboard-reachable jump leads to `FORECAST 03`. One 12-column container aligns the masthead and every chapter.
+The homepage is a subject-first, segmented editorial scroll. Its opening keeps “operating system” together and pairs it with a code-built cinematic forecast instrument: a layered camera lens, viewfinder, signal ribbon, and an Evidence → Reader call → Outcome path. It uses no fabricated values or unavailable platform destinations. `PAST 01` and `PRESENT 02` are independent anchored halves of one combined split chapter on desktop and stack on mobile; an explicit keyboard-reachable jump leads to `FORECAST 03`. One 12-column container aligns the masthead and every chapter.
 
-Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter preserves the empty Guest, Community, and Research System states and local-only binary preview. The season introduces an early pool of eight approved questions in a CSS 3D discovery field with clickable, browser-local `YES / NO` calls, then preserves the compact ruled index and seven native disclosure contracts below. The pool does not imply one question per episode; the operating brief calls for three. Motion pauses during hover or keyboard focus and becomes a static scrollable field when reduced motion is requested.
+Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter presents the Episode 01 premise, a browser-local `YES / NO` call, and its resolution frame without implying published guest, community, or model forecasts. The season introduces eight editorial questions in a controlled CSS 3D discovery field on desktop and a compact native-disclosure index on mobile. Browser-local calls are never submitted, published, or counted. Motion pauses during hover or keyboard focus and becomes static when reduced motion is requested.
 
-The interface progressively enhances its mobile menu, local-only binary call, sharing tools, and three-step hero instrument. The instrument’s Evidence, Three views, and Outcome tabs update a truthful process readout and visual focus; the visible status says the question is not open, unresolved, and has no published forecasts. Fine pointers add a restrained, resettable perspective response. With JavaScript disabled, primary navigation and all three explanatory instrument stages remain available, and native `details` elements still expose draft resolution contracts. Reduced-motion preferences disable the instrument response and all automated question-field motion.
+The interface progressively enhances its mobile menu, local-only calls, sharing tools, and three-step hero instrument. The instrument tabs update a plain-language process readout and visual focus. Fine pointers add a restrained, resettable perspective response. With JavaScript disabled, primary navigation, explanatory instrument content, and all eight question contracts remain available; seven use native disclosures and Episode 01 has its own section. Reduced-motion preferences disable the instrument response and all automated question-field motion.
 
 The repository also includes an owned audience-signal intake for immutable question IDs: `/poll/<question-id>?src=<source>` and the compact `/?poll=<question-id>&src=<source>` form. Open questions use an accessible optional modal with explicit Yes/No, optional 1–99% confidence, one-response-per-browser safeguards, aggregate-only public results, source attribution, rate limits, idempotency, and an audit trail. Direct forecasts and LinkedIn reaction signals remain separate. Episode 01 is still `draft`; its poll route truthfully says it is not open and accepts no submissions. See `docs/audience-signal-intake.md` for the data model, LinkedIn permission boundary/manual CSV fallback, opening checklist, and deployment plan.
 
@@ -61,7 +61,7 @@ The written-commentary system uses Sign in with LinkedIn using OpenID Connect wi
 
 ## Compliance pages
 
-The homepage keeps only compact footer links to static Accessibility, Privacy, and Terms pages in `public/`. Those reading-first pages share `public/legal.css`, remain `noindex, nofollow` during preview, and document only the current implementation. The accessibility target is WCAG 2.2 AA, not a legal certification or guarantee. Automated checks cover their semantics, metadata, reflow, targets, and axe rules at 390px and 1440px; manual review still remains necessary.
+The homepage keeps only compact footer links to static Accessibility, Privacy, and Terms pages in `public/`. Those reading-first pages share `public/legal.css`, remain `noindex, nofollow` while site-wide indexing is disabled, and document only the current implementation. The accessibility target is WCAG 2.2 AA, not a legal certification or guarantee. Automated checks cover their semantics, metadata, reflow, targets, and axe rules at 390px and 1440px; manual review still remains necessary.
 
 ### Production / Railway
 
