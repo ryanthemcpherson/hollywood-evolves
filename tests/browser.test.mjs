@@ -980,23 +980,40 @@ async function mobileEditorialMetrics(page) {
 
 test('mobile editions stay within an intentional reading and scroll budget', async () => {
   const page = await newPage();
-  // Budgets include the hero platform dock and the demo forecast ledger added by demo mode.
-  const budgets = { scrollHeight: 7300, viewportLengths: 8.7, mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
+  // Narrower columns need a measured allowance for readable text reflow. The remaining
+  // budgets stay shared so a viewport cannot hide editorial content to appear shorter.
+  const reflowBudgets = {
+    280: { scrollHeight: 8400, viewportLengths: 10 },
+    300: { scrollHeight: 8125, viewportLengths: 9.7 },
+    312: { scrollHeight: 7900, viewportLengths: 9.4 },
+    320: { scrollHeight: 7800, viewportLengths: 9.3 },
+    375: { scrollHeight: 7400, viewportLengths: 8.8 },
+    390: { scrollHeight: 7300, viewportLengths: 8.7 },
+    430: { scrollHeight: 7300, viewportLengths: 8.7 },
+  };
+  const sharedBudgets = { mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
   const preservationFloors = { mainWords: 550, visibleBlocks: 60, paragraphs: 25 };
   const measurements = {};
-  for (const width of [320, 375, 390, 430]) {
+  const failures = [];
+  for (const width of [280, 300, 312, 320, 375, 390, 430]) {
     await page.setViewport({ width, height: 844 });
     await page.goto(origin, { waitUntil: 'domcontentloaded' });
     const metrics = await mobileEditorialMetrics(page);
     measurements[width] = metrics;
+    const budgets = { ...reflowBudgets[width], ...sharedBudgets };
     for (const [name, maximum] of Object.entries(budgets)) {
-      assert.ok(metrics[name] <= maximum, `${name} ${metrics[name]} exceeds ${width}px mobile budget ${maximum}; metrics=${JSON.stringify(metrics)}`);
+      if (metrics[name] > maximum) {
+        failures.push(`${name} ${metrics[name]} exceeds ${width}px mobile budget ${maximum}`);
+      }
     }
     for (const [name, minimum] of Object.entries(preservationFloors)) {
-      assert.ok(metrics[name] >= minimum, `${name} ${metrics[name]} falls below ${width}px editorial preservation floor ${minimum}; metrics=${JSON.stringify(metrics)}`);
+      if (metrics[name] < minimum) {
+        failures.push(`${name} ${metrics[name]} falls below ${width}px editorial preservation floor ${minimum}`);
+      }
     }
   }
   console.log(`mobile editorial metrics: ${JSON.stringify(measurements)}`);
+  assert.deepEqual(failures, [], `mobile editorial budget failures:\n${failures.join('\n')}`);
   await page.close();
 });
 
@@ -1043,12 +1060,20 @@ test('mobile theme cards keep all eight editorial contracts reachable without ho
   await noScript.close();
 });
 
-for (const [width, height] of [[320, 844], [375, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
+for (const [width, height] of [[280, 653], [300, 653], [312, 844], [320, 844], [375, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
   const page = await newPage();
   await page.setViewport({ width, height });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => { document.documentElement.dataset.demoState = 'ready'; });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 1, `horizontal overflow is ${overflow}px`);
+  const escaped = await page.evaluate(() => ['.demo-banner', '.hero-copy', '.operating-system', '.question-field', '[data-question-rail-controls]'].flatMap((selector) => [...document.querySelectorAll(selector)].filter((element) => {
+    const style = getComputedStyle(element);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && (rect.left < -1 || rect.right > innerWidth + 1);
+  }).map((element) => `${selector}:${Math.round(element.getBoundingClientRect().left)}..${Math.round(element.getBoundingClientRect().right)}`)));
+  assert.deepEqual(escaped, [], `components escaped the viewport: ${escaped.join(', ')}`);
   const aligned = await page.evaluate(() => {
     const lefts = [...document.querySelectorAll('.site-header .grid, main > section > .grid, footer > .grid')].map((el) => Math.round(el.getBoundingClientRect().left));
     const phrase = document.querySelector('.operating-system');
@@ -1056,7 +1081,7 @@ for (const [width, height] of [[320, 844], [375, 844], [390, 844], [430, 844], [
     return { lefts, heroBottom: Math.round(document.querySelector('.hero').getBoundingClientRect().bottom), phraseRects: phrase.getClientRects().length, phraseInside: phraseRect.left >= 0 && phraseRect.right <= innerWidth };
   });
   assert.equal(new Set(aligned.lefts).size, 1, `shared grid left edges differ: ${aligned.lefts.join(', ')}`);
-  assert.equal(aligned.phraseRects, 1, 'Operating System must have exactly one client rect');
+  if (width >= 320) assert.equal(aligned.phraseRects, 1, 'Operating System must have exactly one client rect at 320px and above');
   assert.equal(aligned.phraseInside, true, 'Operating System must stay inside the viewport');
   if (width >= 1000) assert.ok(aligned.heroBottom <= height + 80, `hero extends unexpectedly to ${aligned.heroBottom}px`);
   const undersized = await page.evaluate(() => [...document.querySelectorAll('a, button, input, summary')].filter((el) => {
@@ -1066,6 +1091,18 @@ for (const [width, height] of [[320, 844], [375, 844], [390, 844], [430, 844], [
     return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
   }).map((el) => `${el.tagName.toLowerCase()}.${el.className || el.id}:${Math.round(el.getBoundingClientRect().width)}x${Math.round(el.getBoundingClientRect().height)}`));
   assert.deepEqual(undersized, [], `undersized targets: ${undersized.join(', ')}`);
+  const undersizedText = await page.evaluate(() => {
+    const visibleTextBelow = (selectors, minimum) => selectors.flatMap((selector) => [...document.querySelectorAll(selector)].filter((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0 && Number.parseFloat(style.fontSize) < minimum;
+    }).map((element) => `${selector}:${getComputedStyle(element).fontSize}`));
+    return [
+      ...visibleTextBelow(['.demo-banner', '.eyebrow', '.nav-links a', '.menu-button', '.button', '.text-link', '.timing', '.chapter-marker', '.episode-number', '.editorial-state', '.status', '.share-button', '.reset', '.ledger thead th', '.contract dt', '.episode-frame dt', '.portrait figcaption', '.host-copy li', '.method-grid li>span', '.hero-dock', '.motion-card-link>span', '.motion-card-link>small', '.card-open-cue', '.card-call i', '.card-context [data-card-close]', '.question-rail-controls', '.instrument-head', '.instrument-head b', '.instrument-controls button', '.instrument-foot', '.forecast-jump'], 11),
+      ...visibleTextBelow(['.field-intro>p:last-child', '.question>p:not(.eyebrow)', '.share-status', '.share-fallback label', '.ledger tbody th', '.ledger tbody td', '.private-forecast legend', '#privacy-note', '.contract dd', '.season-header>p', '.episode-frame dd', '.contributors p:not(.eyebrow)', '.host-copy p:not(.eyebrow)', '.method-grid li p', 'footer'], 13),
+    ];
+  });
+  assert.deepEqual(undersizedText, [], `undersized meaningful text: ${undersizedText.join(', ')}`);
   await page.addScriptTag({ content: await readFile(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8') });
   const results = await page.evaluate(() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'] } }));
   assert.deepEqual(results.violations.map(({ id, impact, nodes }) => ({ id, impact, targets: nodes.map((node) => node.target) })), []);
