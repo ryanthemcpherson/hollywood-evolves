@@ -64,35 +64,27 @@ test('binary private call is keyboard operable, local-only, and clearable', asyn
   await page.close();
 });
 
-test('draft poll magic link is truthful, accessible, and does not solicit a response', async () => {
+test('unavailable poll route returns the branded 404 without poll controls', async () => {
   const page = await newPage();
-  await page.goto(`${origin}/poll/he-episode-01-customer-evolution-v1?src=linkedin`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => document.querySelector('#poll-title')?.textContent.includes('Will at least three'));
-  const state = await page.evaluate(() => ({
-    title: document.querySelector('#poll-title')?.textContent.trim(),
-    status: document.querySelector('#poll-state')?.textContent.trim(),
-    dialogOpen: document.querySelector('#audience-poll')?.open,
-    resultsHidden: document.querySelector('#poll-results')?.hidden,
-    source: document.querySelector('[data-poll-root]')?.dataset.source,
-  }));
-  assert.match(state.title, /ad-supported plans/);
-  assert.match(state.status, /draft.*not open/i);
-  assert.equal(state.dialogOpen, false);
-  assert.equal(state.resultsHidden, true);
-  assert.equal(state.source, 'linkedin');
-  await page.close();
-});
-
-test('homepage query deep link preserves question ID and source attribution', async () => {
-  const page = await newPage();
-  await page.goto(`${origin}/?poll=he-episode-01-customer-evolution-v1&src=qr`, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => location.pathname.startsWith('/poll/'));
-  assert.equal(await page.evaluate(() => `${location.pathname}${location.search}`), '/poll/he-episode-01-customer-evolution-v1?src=qr');
+  const response = await page.goto(`${origin}/poll/he-episode-01-customer-evolution-v1?src=newsletter`, { waitUntil: 'domcontentloaded' });
+  assert.equal(response.status(), 404);
+  assert.equal(await page.$eval('h1', (heading) => heading.textContent.trim()), 'This page didn’t make the cut.');
+  assert.equal(await page.$$eval('[data-poll-root], #audience-poll, [data-choice]', (nodes) => nodes.length), 0);
   await page.close();
 });
 
 test('open poll modal is optional, explicit, accessible, and one-response-per-browser', async () => {
-  const page = await newPage();
+  const page = await browser.newPage();
+  await page.setBypassCSP(true);
+  await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
+  const pollDocument = await readFile(new URL('../dist/poll.html', import.meta.url), 'utf8');
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+      request.respond({ status: 200, contentType: 'text/html; charset=utf-8', body: pollDocument });
+    } else if (/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())) request.abort();
+    else request.continue();
+  });
   await page.evaluateOnNewDocument(() => {
     let recorded = false;
     window.fetch = async (url, options = {}) => {
@@ -113,7 +105,7 @@ test('open poll modal is optional, explicit, accessible, and one-response-per-br
   await page.goto(`${origin}/poll/he-episode-01-customer-evolution-v1?src=newsletter`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.querySelector('#audience-poll')?.open);
   assert.equal(await page.$eval('#audience-poll', (dialog) => document.activeElement === dialog || dialog.contains(document.activeElement)), true);
-  const controls = await page.$$eval('[data-choice], #poll-confidence, .poll-submit, .poll-skip, .poll-close', (nodes) => nodes.map((node) => ({ text: node.textContent.trim(), width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
+  const controls = await page.$$eval('[data-choice], #poll-confidence, .poll-submit, .poll-skip, .poll-close', (nodes) => nodes.map((node) => ({ width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height })));
   assert.ok(controls.every(({ width, height }) => width >= 44 && height >= 44));
   await page.click('[data-choice="yes"]');
   await page.type('#poll-confidence', '81');
@@ -165,7 +157,7 @@ test('mobile navigation remains visible and the inert Menu control stays hidden 
   await page.close();
 });
 
-test('subject-first cover leads with a coded forecast instrument and no host portrait', async () => {
+test('subject-first cover leads with a confident program entry and simplified instrument', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1440, height: 1000 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
@@ -179,13 +171,14 @@ test('subject-first cover leads with a coded forecast instrument and no host por
   }));
   assert.match(cover.headline, /Hollywood’s next operating system/);
   assert.equal(cover.portraitCount, 0);
-  assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↓']);
+  assert.deepEqual(cover.actions, ['Read the Episode 01 premise', 'Explore the editorial themes ↓']);
   assert.match(cover.timing, /November 2026/);
   assert.match(cover.timing, /January 2027/);
-  assert.match(cover.instrument, /NOT OPEN/);
+  assert.match(cover.timing, /Program dates/);
+  assert.match(cover.instrument, /QUESTION/);
   assert.match(cover.instrument, /EVIDENCE/);
-  assert.match(cover.instrument, /THREE VIEWS/);
   assert.match(cover.instrument, /OUTCOME/);
+  assert.doesNotMatch(cover.instrument, /draft|not open|in development/i);
   assert.equal(cover.svgCount, 2);
   await page.close();
 });
@@ -207,8 +200,9 @@ test('forecast instrument tabs expose truthful states and support keyboard navig
   assert.ok(initial.tabs.every(({ controls, width, height }) => controls && width >= 44 && height >= 44));
   assert.deepEqual(initial.tabs.map(({ tabindex }) => tabindex), [0, -1, -1]);
   assert.equal(initial.visible.length, 1);
-  assert.match(initial.visible[0], /Public reporting published before the agreed cutoff/);
-  for (const copy of [/Guest, Community, and Research System will remain separately labeled/, /No probability is currently published/, /agreed threshold and eligible evidence will eventually resolve/, /Current status: not open · unresolved/]) assert.match(initial.text, copy);
+  assert.match(initial.visible[0], /Name the reporting that can answer the question/);
+  for (const copy of [/Name the reporting that can answer the question/, /Save a private YES or NO/, /Compare eligible evidence with the stated threshold and deadline/]) assert.match(initial.text, copy);
+  assert.doesNotMatch(initial.text, /draft|not open|in development/i);
   for (const jargon of [/UNRESOLVED GATE/i, /PUBLIC LEDGER/i, /01 Capture/i, /02 Forecast/i, /03 Resolve/i]) assert.doesNotMatch(initial.text, jargon);
 
   await page.focus('#instrument-tab-evidence');
@@ -232,22 +226,10 @@ test('instrument core explanation survives without JavaScript', async () => {
   assert.equal(panels.length, 3);
   assert.ok(panels.every(({ hidden, height }) => !hidden && height > 0));
   const explanation = panels.map(({ text }) => text).join(' ');
-  assert.match(explanation, /Public reporting published before the agreed cutoff/);
-  assert.match(explanation, /Guest, Community, and Research System/);
-  assert.match(explanation, /currently not open and unresolved/);
-  await page.close();
-});
-
-test('future platform destinations are exactly three honest non-link placeholders', async () => {
-  const page = await newPage();
-  await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  const distribution = await page.$eval('.distribution', (section) => ({
-    intro: section.querySelector('.distribution-intro')?.textContent.replace(/\s+/g, ' ').trim(),
-    cards: [...section.querySelectorAll('.platform-card')].map((card) => ({ platform: card.dataset.platform, url: card.dataset.url, tag: card.tagName, hrefs: card.querySelectorAll('[href]').length, text: card.textContent.replace(/\s+/g, ' ').trim() })),
-  }));
-  assert.match(distribution.intro, /Links will appear when Episode 01 publishes in January 2027/);
-  assert.deepEqual(distribution.cards.map(({ platform }) => platform), ['Spotify', 'Apple Music', 'YouTube']);
-  assert.ok(distribution.cards.every(({ url, tag, hrefs, text }) => url === 'pending' && tag === 'ARTICLE' && hrefs === 0 && /Coming January 2027/.test(text) && /Link pending/.test(text)));
+  assert.match(explanation, /Name the reporting that can answer the question/);
+  assert.match(explanation, /Save a private YES or NO/);
+  assert.match(explanation, /Compare eligible evidence with the stated threshold and deadline/);
+  assert.doesNotMatch(explanation, /draft|not open|in development/i);
   await page.close();
 });
 
@@ -300,48 +282,10 @@ test('homepage has one portrait and three explicit subject chapters', async () =
   await page.close();
 });
 
-test('commentary panel is truthful and non-soliciting while LinkedIn login is unconfigured', async () => {
+test('homepage omits unavailable destinations, commentary controls, and unpublished ledger rows', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => /not active/i.test(document.querySelector('#commentary-status')?.textContent || ''));
-  const panel = await page.$eval('#commentary-app', (element) => ({
-    questionId: element.dataset.questionId,
-    status: element.querySelector('#commentary-status')?.textContent.trim(),
-    loginHidden: element.querySelector('#linkedin-login')?.hidden,
-    formHidden: element.querySelector('#commentary-form')?.hidden,
-    consent: {
-      required: element.querySelector('#commentary-consent')?.required,
-      checked: element.querySelector('#commentary-consent')?.checked,
-    },
-    deleteAccount: {
-      type: element.querySelector('#commentary-delete-account')?.type,
-      text: element.querySelector('#commentary-delete-account')?.textContent.trim(),
-    },
-    comments: element.querySelectorAll('#published-commentary li:not(.empty-commentary)').length,
-  }));
-  assert.equal(panel.questionId, 'he-episode-01-customer-evolution-v1');
-  assert.match(panel.status, /not active in this preview/i);
-  assert.equal(panel.loginHidden, true);
-  assert.equal(panel.formHidden, true);
-  assert.deepEqual(panel.consent, { required: true, checked: false });
-  assert.deepEqual(panel.deleteAccount, { type: 'button', text: 'Delete account and submissions' });
-  assert.equal(panel.comments, 0);
-  await page.close();
-});
-
-test('forecast ledger is a native table with a screen-reader caption and scoped headers', async () => {
-  const page = await newPage();
-  await page.goto(origin, { waitUntil: 'domcontentloaded' });
-  const ledger = await page.$eval('.ledger', (table) => ({
-    tag: table.tagName,
-    caption: table.querySelector('caption')?.textContent.trim(),
-    columns: [...table.querySelectorAll('thead th')].map((cell) => [cell.textContent.trim(), cell.scope]),
-    rows: [...table.querySelectorAll('tbody tr')].map((row) => [row.querySelector('th')?.textContent.trim(), row.querySelector('th')?.scope]),
-  }));
-  assert.equal(ledger.tag, 'TABLE');
-  assert.equal(ledger.caption, 'Episode 01 forecast status');
-  assert.deepEqual(ledger.columns, [['View', 'col'], ['Probability', 'col'], ['Status', 'col']]);
-  assert.deepEqual(ledger.rows, [['Guest', 'row'], ['Community', 'row'], ['Research System', 'row']]);
+  assert.equal(await page.$$eval('.distribution, .platform-card, #commentary-app, #linkedin-login, table.ledger', (nodes) => nodes.length), 0);
   await page.close();
 });
 
@@ -399,7 +343,7 @@ test('native share receives the canonical forecast payload', async () => {
   await page.click('#share-forecast');
   assert.deepEqual(await page.evaluate(() => window.__sharedForecast), {
     title: 'Hollywood Evolves — Episode 01 forecast',
-    text: 'Consider the draft Episode 01 forecast on the future of ad-supported streaming plans.',
+    text: 'Consider the Episode 01 question about the future of ad-supported streaming plans.',
     url: 'https://hollywoodevolves.mcpherson.app/#forecast',
   });
   assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Sharing request completed.');
@@ -415,7 +359,7 @@ test('share copies the canonical URL when native share is unavailable', async ()
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   await page.click('#share-forecast');
   assert.equal(await page.evaluate(() => window.__copiedForecast), 'https://hollywoodevolves.mcpherson.app/#forecast');
-  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Draft question URL copied.');
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Question URL copied.');
   await page.close();
 });
 
@@ -433,19 +377,19 @@ test('share reveals and selects a readonly URL when sharing APIs are unavailable
     selected: input.selectionStart === 0 && input.selectionEnd === input.value.length,
     focused: document.activeElement === input,
   })), { hidden: false, readonly: true, selected: true, focused: true });
-  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Select and copy the draft question URL.');
+  assert.equal(await page.$eval('#share-status', (el) => el.textContent), 'Select and copy the question URL.');
   await page.close();
 });
 
-test('season ledger uses native disclosure rows and honest draft contracts', async () => {
+test('season ledger uses native disclosure rows and complete editorial questions', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   const ledger = await page.$eval('.season-ledger', (el) => ({
     details: el.querySelectorAll(':scope > li > details').length,
     summaries: el.querySelectorAll(':scope > li > details > summary').length,
-    states: [...el.querySelectorAll('.draft-state')].map((node) => node.textContent.trim()),
-    contracts: [...el.querySelectorAll('.episode-draft')].map((node) => ({
-      question: node.querySelector('.draft-question')?.textContent.trim(),
+    states: [...el.querySelectorAll('.editorial-state')].map((node) => node.textContent.trim()),
+    contracts: [...el.querySelectorAll('.episode-frame')].map((node) => ({
+      question: node.querySelector('.editorial-question')?.textContent.trim(),
       terms: [...node.querySelectorAll('dt')].map((term) => term.textContent.trim()),
     })),
     text: el.textContent,
@@ -453,11 +397,12 @@ test('season ledger uses native disclosure rows and honest draft contracts', asy
   assert.equal(ledger.details, 7);
   assert.equal(ledger.summaries, 7);
   assert.equal(ledger.states.length, 8);
-  assert.ok(ledger.states.every((state) => state === 'Draft question / criteria in review / not open'));
+  assert.ok(ledger.states.every(Boolean));
   assert.ok(ledger.contracts.every(({ question, terms }) => question && ['YES threshold', 'Resolve by', 'Evidence / resolver'].every((term) => terms.includes(term))));
   assert.match(ledger.text, /fully synthetic performer receive top billing/);
   assert.match(ledger.text, /final U\.S\. appellate decision/);
   for (const forbidden of ['probability', 'guest', 'votes', 'trends', 'comments', 'aired']) assert.doesNotMatch(ledger.text.toLowerCase(), new RegExp(forbidden));
+  assert.doesNotMatch(ledger.text, /draft|not open|in development/i);
   await page.close();
 });
 
@@ -499,7 +444,8 @@ test('eight truthful motion cards link to stable native question details and off
   }));
   assert.equal(cards.length, 8);
   assert.equal(new Set(cards.map(({ href }) => href)).size, 8);
-  assert.ok(cards.every(({ target, text, calls }) => target && /YES\s+—/.test(text) && /NO\s+—/.test(text) && /criteria in review/.test(text) && /not open/.test(text) && calls.join(',') === 'yes,no'));
+  assert.ok(cards.every(({ target, text, calls }) => target && /YES\s+—/.test(text) && /NO\s+—/.test(text) && /Threshold · deadline · evidence/.test(text) && calls.join(',') === 'yes,no'));
+  assert.ok(cards.every(({ text }) => !/draft|not open|in development/i.test(text)));
   await page.waitForFunction(() => {
     const card = document.querySelector('.motion-card[data-question-id="question-01"]');
     const rail = document.querySelector('.question-rail');
@@ -682,10 +628,10 @@ test('question-card link expands full context, displaces neighbors, and closes w
   assert.equal(expanded.ariaExpanded, 'true');
   assert.ok(expanded.width > before * 1.8, `expanded width ${expanded.width}px did not substantially exceed ${before}px`);
   assert.match(expanded.context, /Why it matters:/);
-  assert.match(expanded.context, /Draft contract · criteria in review · not open/);
   assert.match(expanded.context, /YES threshold/);
   assert.match(expanded.context, /Resolve by/);
   assert.match(expanded.context, /Evidence \/ resolver/);
+  assert.doesNotMatch(expanded.context, /draft|not open|in development/i);
   assert.equal(expanded.closeButton, '× Close context');
   assert.ok(expanded.shifts.every((shift) => Math.abs(shift) >= 360));
   assert.equal(expanded.neighborsInert, true);
@@ -700,15 +646,14 @@ test('question-card link expands full context, displaces neighbors, and closes w
   await page.close();
 });
 
-test('episode model follows the three-forecast system brief', async () => {
+test('season presents eight editorial questions without roadmap narration', async () => {
   const page = await newPage();
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   const text = await page.$eval('#season', (section) => section.textContent.replace(/\s+/g, ' '));
-  assert.match(text, /three forecasts per episode/i);
-  assert.match(text, /structural/i);
-  assert.match(text, /operating/i);
-  assert.match(text, /fast-resolving/i);
-  assert.match(text, /question pool/i);
+  assert.match(text, /Eight measurable questions/i);
+  assert.match(text, /Customer Evolution/i);
+  assert.match(text, /Animation Evolution/i);
+  assert.doesNotMatch(text, /draft|not open|coming soon|in development/i);
   await page.close();
 });
 
