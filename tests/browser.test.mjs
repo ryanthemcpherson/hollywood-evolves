@@ -657,7 +657,89 @@ test('season presents eight editorial questions without roadmap narration', asyn
   await page.close();
 });
 
-for (const [width, height] of [[320, 844], [390, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
+async function mobileEditorialMetrics(page) {
+  return page.evaluate(() => {
+    const visible = (element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+    };
+    const words = (text) => text.trim().split(/\s+/).filter(Boolean).length;
+    const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
+    const contentBlocks = [...document.querySelectorAll('main > section, main h1, main h2, main h3, main p, main li')].filter(visible);
+    const scrollHeight = document.documentElement.scrollHeight;
+    return {
+      scrollHeight,
+      viewportLengths: Number((scrollHeight / innerHeight).toFixed(1)),
+      mainWords: words(document.querySelector('main').innerText),
+      visibleBlocks: contentBlocks.length,
+      paragraphs: paragraphs.length,
+      longParagraphs: paragraphs.filter((paragraph) => paragraph.textContent.trim().length >= 160).length,
+    };
+  });
+}
+
+test('mobile editions stay within an intentional reading and scroll budget', async () => {
+  const page = await newPage();
+  const budgets = { scrollHeight: 7000, viewportLengths: 8.3, mainWords: 760, visibleBlocks: 70, paragraphs: 34, longParagraphs: 2 };
+  const preservationFloors = { mainWords: 550, visibleBlocks: 60, paragraphs: 25 };
+  for (const width of [320, 375, 390, 430]) {
+    await page.setViewport({ width, height: 844 });
+    await page.goto(origin, { waitUntil: 'domcontentloaded' });
+    const metrics = await mobileEditorialMetrics(page);
+    for (const [name, maximum] of Object.entries(budgets)) {
+      assert.ok(metrics[name] <= maximum, `${name} ${metrics[name]} exceeds ${width}px mobile budget ${maximum}; metrics=${JSON.stringify(metrics)}`);
+    }
+    for (const [name, minimum] of Object.entries(preservationFloors)) {
+      assert.ok(metrics[name] >= minimum, `${name} ${metrics[name]} falls below ${width}px editorial preservation floor ${minimum}; metrics=${JSON.stringify(metrics)}`);
+    }
+  }
+  await page.close();
+});
+
+test('mobile theme disclosure keeps all eight editorial contracts reachable without horizontal trapping', async () => {
+  const page = await newPage();
+  await page.setViewport({ width: 390, height: 844 });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.doesNotMatch(await page.$eval('.season-header', (header) => header.textContent), /open any theme/i);
+  const summaries = await page.$$('.season-ledger summary');
+  for (const summary of summaries) {
+    await summary.focus();
+    await summary.press('Enter');
+  }
+  const contracts = await page.$$eval('.season-ledger > li', (rows) => rows.map((row) => {
+    const disclosure = row.querySelector('details');
+    const terms = [...row.querySelectorAll('dt')].map((term) => term.textContent.trim());
+    return {
+      title: row.querySelector('h3, .episode-title')?.textContent.trim(),
+      question: row.querySelector('.editorial-question, h3')?.textContent.trim(),
+      terms,
+      reachable: !disclosure || disclosure.open,
+      rendered: !disclosure || row.querySelector('.episode-frame').getBoundingClientRect().height > 0,
+    };
+  }));
+  assert.equal(contracts.length, 8);
+  assert.ok(contracts.every(({ title, question, reachable, rendered }) => title && question && reachable && rendered));
+  assert.ok(contracts.slice(1).every(({ terms }) => ['YES threshold', 'Resolve by', 'Evidence / resolver'].every((term) => terms.includes(term))));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth <= 1));
+  await page.close();
+
+  const noScript = await newPage();
+  await noScript.setJavaScriptEnabled(false);
+  await noScript.setViewport({ width: 390, height: 844 });
+  await noScript.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.deepEqual(await noScript.$eval('#season', (season) => ({
+    rows: season.querySelectorAll('.season-ledger > li').length,
+    summaries: season.querySelectorAll('.season-ledger summary').length,
+    duplicateField: getComputedStyle(season.querySelector('.question-field')).display,
+  })), { rows: 8, summaries: 7, duplicateField: 'none' });
+  const noScriptSummaries = await noScript.$$('.season-ledger summary');
+  for (const summary of noScriptSummaries) await summary.click();
+  assert.ok(await noScript.$$eval('.season-ledger details', (details) => details.every((disclosure) => disclosure.open && disclosure.querySelector('.episode-frame').getBoundingClientRect().height > 0 && /YES threshold/.test(disclosure.textContent))));
+  await noScript.close();
+});
+
+for (const [width, height] of [[320, 844], [375, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
   const page = await newPage();
   await page.setViewport({ width, height });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
