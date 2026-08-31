@@ -47,7 +47,9 @@ The production site is written to `dist/`.
 
 ### Homepage composition
 
-The homepage is organized as an issue cover followed by an inspectable intelligence desk. A compact publication masthead, the supplied Ian McPherson portrait, a deliberate three-line premise, actions, and Episode 01 production timing share the first viewport. `Past → Present → Forecast` is the repeating navigation motif: it appears as a vertical cover rail, a three-act editorial sequence, and a state path through the forecast ledger. The dark forecast room keeps the empty Guest, Community, and Research System views visible without inventing values; the season remains a compact ruled index with native disclosure details.
+The homepage is a subject-first, segmented editorial scroll. Its opening pairs Hollywood's next operating system with a code-built forecast instrument: aperture geometry, a media-pipeline line, waveform, distribution nodes, and an explicitly unresolved state. It uses no subject image or fabricated value. `PAST`, `PRESENT`, and `FORECAST` are separate numbered chapters with distinct compositions. One 12-column container aligns the masthead and every chapter.
+
+Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter preserves the empty Guest, Community, and Research System states and local-only binary preview. The eight-question season remains a compact ruled index with native disclosure details.
 
 The interface progressively enhances its mobile menu, local-only binary call, and sharing tools. With JavaScript disabled, primary navigation and all editorial content remain available, and native `details` elements still expose draft resolution contracts.
 

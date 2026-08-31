@@ -93,28 +93,47 @@ test('mobile navigation remains visible and the inert Menu control stays hidden 
     })),
   }));
   assert.equal(navigation.menuDisplay, 'none');
-  assert.equal(navigation.links.length, 4);
+  assert.equal(navigation.links.length, 6);
   assert.ok(navigation.links.every(({ display, width, height }) => display !== 'none' && width > 0 && height > 0));
   await page.close();
 });
 
-test('editorial cover leads with premise, actions, portrait, and production timing', async () => {
+test('subject-first cover leads with a coded forecast instrument and no host portrait', async () => {
   const page = await newPage();
   await page.setViewport({ width: 1440, height: 1000 });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   const cover = await page.$eval('.hero', (hero) => ({
-    headlineLines: [...hero.querySelectorAll('h1 > *')].map((line) => line.textContent.trim()),
-    portrait: hero.querySelector('.hero-portrait img')?.getAttribute('src'),
-    actions: [...hero.querySelectorAll('.hero-actions a')].map((link) => link.textContent.trim()),
-    timing: hero.querySelector('.release-line')?.textContent,
-    motif: hero.querySelector('.hero-rail')?.textContent,
+    headline: hero.querySelector('h1')?.textContent.trim(),
+    portraitCount: hero.querySelectorAll('img').length,
+    actions: [...hero.querySelectorAll('.actions a')].map((link) => link.textContent.trim()),
+    timing: hero.querySelector('.timing')?.textContent,
+    instrument: hero.querySelector('.instrument')?.textContent,
+    svgCount: hero.querySelectorAll('.instrument svg').length,
   }));
-  assert.deepEqual(cover.headlineLines, ['Hollywood keeps', 'changing the system.', 'We keep the record.']);
-  assert.match(cover.portrait, /assets\/ian-mcpherson\.webp$/);
-  assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↘']);
+  assert.match(cover.headline, /Hollywood’s next operating system/);
+  assert.equal(cover.portraitCount, 0);
+  assert.deepEqual(cover.actions, ['Preview the Episode 01 draft question', 'Explore season one ↓']);
   assert.match(cover.timing, /November 2026/);
   assert.match(cover.timing, /January 2027/);
-  assert.match(cover.motif, /Past\s*Present\s*Forecast/);
+  assert.match(cover.instrument, /STATE: UNRESOLVED/);
+  assert.match(cover.instrument, /MEDIA PIPELINE/);
+  assert.match(cover.instrument, /AUDIO/);
+  assert.match(cover.instrument, /DISTRIBUTION/);
+  assert.equal(cover.svgCount, 2);
+  await page.close();
+});
+
+test('homepage has one portrait and three explicit subject chapters', async () => {
+  const page = await newPage();
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const structure = await page.evaluate(() => ({
+    portraits: [...document.images].filter((img) => img.getAttribute('src')?.endsWith('/assets/ian-mcpherson.webp')).length,
+    hostPortraits: [...document.querySelectorAll('#host img')].filter((img) => img.getAttribute('src')?.endsWith('/assets/ian-mcpherson.webp')).length,
+    chapters: ['past', 'present', 'forecast'].map((id) => ({ id, marker: document.querySelector(`#${id} .chapter-marker b`)?.textContent.trim() })),
+  }));
+  assert.equal(structure.portraits, 1);
+  assert.equal(structure.hostPortraits, 1);
+  assert.deepEqual(structure.chapters, [{ id: 'past', marker: 'PAST' }, { id: 'present', marker: 'PRESENT' }, { id: 'forecast', marker: 'FORECAST' }]);
   await page.close();
 });
 
@@ -148,8 +167,8 @@ test('authored focus rings remain two-color on dark forecast, binary proxy, and 
   }
   for (const sample of samples) {
     assert.equal(sample.outlineWidth, '3px');
-    assert.equal(sample.outlineColor, 'rgb(250, 247, 240)');
-    assert.match(sample.boxShadow, /rgb\(23, 23, 21\).*0px 0px 0px 6px/);
+    assert.equal(sample.outlineColor, 'rgb(251, 247, 238)');
+    assert.match(sample.boxShadow, /rgb\(21, 22, 21\).*0px 0px 0px 6px/);
   }
   await page.close();
 });
@@ -174,8 +193,8 @@ test('mobile menu manages keyboard, outside click, scroll lock, and focus', asyn
   await page.click('.menu-button');
   await page.click('#menu a');
   assert.equal(await page.$eval('.menu-button', (el) => el.getAttribute('aria-expanded')), 'false');
-  await page.waitForFunction(() => document.activeElement?.id === 'forecast');
-  assert.equal(await page.evaluate(() => document.activeElement.id), 'forecast');
+  await page.waitForFunction(() => document.activeElement?.id === 'past');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'past');
   await page.close();
 });
 
@@ -250,12 +269,18 @@ test('season ledger uses native disclosure rows and honest draft contracts', asy
   await page.close();
 });
 
-for (const width of [320, 390, 768, 1440]) test(`no overflow and axe WCAG 2.2 AA violations at ${width}px`, async () => {
+for (const [width, height] of [[320, 844], [390, 844], [768, 900], [1366, 768], [1440, 900]]) test(`layout and axe WCAG 2.2 AA pass at ${width}x${height}`, async () => {
   const page = await newPage();
-  await page.setViewport({ width, height: 900 });
+  await page.setViewport({ width, height });
   await page.goto(origin, { waitUntil: 'domcontentloaded' });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 1, `horizontal overflow is ${overflow}px`);
+  const aligned = await page.evaluate(() => {
+    const lefts = [...document.querySelectorAll('.site-header .grid, main > section > .grid, footer > .grid')].map((el) => Math.round(el.getBoundingClientRect().left));
+    return { lefts, heroBottom: Math.round(document.querySelector('.hero').getBoundingClientRect().bottom) };
+  });
+  assert.equal(new Set(aligned.lefts).size, 1, `shared grid left edges differ: ${aligned.lefts.join(', ')}`);
+  if (width >= 1000) assert.ok(aligned.heroBottom <= height + 80, `hero extends unexpectedly to ${aligned.heroBottom}px`);
   const undersized = await page.evaluate(() => [...document.querySelectorAll('a, button, input, summary')].filter((el) => {
     const style = getComputedStyle(el);
     if (style.display === 'none' || style.visibility === 'hidden' || (el.matches('input') && Number(style.opacity) === 0)) return false;
