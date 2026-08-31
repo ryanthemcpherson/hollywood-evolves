@@ -13,7 +13,7 @@ function metaContent(html, attribute, value) {
 }
 
 test('the brand contract is complete and references approved assets', () => {
-  for (const path of ['DESIGN.md', 'public/brand/brand.json', 'public/brand/brand.css', 'public/brand/wordmark.svg', 'public/brand/monogram.svg', 'public/brand/social-card.svg', 'public/brand/social-card.png']) {
+  for (const path of ['DESIGN.md', 'public/brand/brand.json', 'public/brand/brand.css', 'public/brand/wordmark.svg', 'public/brand/wordmark-inverse.svg', 'public/brand/monogram.svg', 'public/brand/social-card.svg', 'public/brand/social-card.png']) {
     assert.equal(existsSync(resolve(root, path)), true, `Missing canonical brand file: ${path}`);
   }
 
@@ -29,6 +29,7 @@ test('the brand contract is complete and references approved assets', () => {
     white: '#faf7f0',
   });
   assert.equal(brand.assets.wordmark, '/brand/wordmark.svg');
+  assert.equal(brand.assets.wordmarkInverse, '/brand/wordmark-inverse.svg');
   assert.equal(brand.assets.monogram, '/brand/monogram.svg');
   assert.equal(brand.assets.socialCard, '/brand/social-card.png');
 });
@@ -40,7 +41,8 @@ test('every page uses the canonical palette, wordmark, and rich-preview image', 
   for (const page of pages) {
     const html = read(page);
     assert.equal(metaContent(html, 'name', 'theme-color'), brand.colors.paper, `${page} has the wrong theme color`);
-    assert.match(html, /<img[^>]+src="\/brand\/wordmark\.svg"[^>]+alt="Hollywood Evolves"/, `${page} does not use the canonical wordmark`);
+    const wordmark = page === 'poll.html' ? 'wordmark-inverse' : 'wordmark';
+    assert.match(html, new RegExp(`<img[^>]+src="/brand/${wordmark}\\.svg"[^>]+alt="Hollywood Evolves"`), `${page} does not use the correct canonical wordmark`);
     assert.equal(metaContent(html, 'property', 'og:image'), absoluteSocialCard, `${page} has the wrong Open Graph image`);
     assert.equal(metaContent(html, 'name', 'twitter:image'), absoluteSocialCard, `${page} has the wrong Twitter image`);
   }
@@ -61,4 +63,14 @@ test('stylesheets consume shared brand tokens instead of redefining the palette'
     assert.match(css, /^@import url\("\/brand\/brand\.css"\);/, `${stylesheet} must import canonical tokens`);
     assert.doesNotMatch(css, /--(?:ivory|paper|ink|muted|rule|red|blue|white):#[0-9a-f]{6}/i, `${stylesheet} redefines brand colors`);
   }
+});
+
+test('dark surfaces use the approved inverse wordmark without flattening its colors', () => {
+  const home = read('index.html');
+  const poll = read('poll.html');
+  const brandCss = read('public/brand/brand.css');
+
+  assert.match(home, /<footer>[\s\S]*?src="\/brand\/wordmark-inverse\.svg"/);
+  assert.match(poll, /<header class="poll-header">[\s\S]*?src="\/brand\/wordmark-inverse\.svg"/);
+  assert.doesNotMatch(brandCss, /filter:\s*brightness\(0\)\s*invert\(1\)/);
 });

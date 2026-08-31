@@ -21,6 +21,7 @@
   },
   "assets": {
     "wordmark": "/brand/wordmark.svg",
+    "wordmarkInverse": "/brand/wordmark-inverse.svg",
     "monogram": "/brand/monogram.svg",
     "socialCard": "/brand/social-card.png"
   }
