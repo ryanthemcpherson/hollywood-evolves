@@ -1,13 +1,34 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import test, { after, before } from 'node:test';
 import puppeteer from 'puppeteer-core';
 
 let browser;
 let child;
 let origin;
+
+function browserExecutablePath() {
+  const configured = process.env.BROWSER_EXECUTABLE_PATH;
+  if (configured) {
+    if (!existsSync(configured)) throw new Error(`BROWSER_EXECUTABLE_PATH does not exist: ${configured}`);
+    return configured;
+  }
+
+  const candidates = process.platform === 'win32'
+    ? [
+      process.env.PROGRAMFILES && join(process.env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+      process.env['PROGRAMFILES(X86)'] && join(process.env['PROGRAMFILES(X86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      process.env.LOCALAPPDATA && join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ]
+    : ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'];
+  const detected = candidates.filter(Boolean).find((candidate) => existsSync(candidate));
+  if (!detected) throw new Error('No supported Chromium browser found. Set BROWSER_EXECUTABLE_PATH.');
+  return detected;
+}
 
 async function newPage() {
   const page = await browser.newPage();
@@ -38,7 +59,7 @@ before(async () => {
     child.once('exit', (code) => reject(new Error(`Server exited (${code})`)));
   });
   origin = `http://127.0.0.1:${port}`;
-  browser = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  browser = await puppeteer.launch({ executablePath: browserExecutablePath(), headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
 });
 
 after(async () => {
