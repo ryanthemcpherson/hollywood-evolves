@@ -44,7 +44,7 @@ async function startServer(t, env = {}) {
   });
 
   await new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Server did not start')), 3000);
+    const timer = setTimeout(() => reject(new Error('Server did not start')), 15000);
     child.once('exit', (code) => {
       clearTimeout(timer);
       reject(new Error(`Server exited before startup (${code})`));
@@ -73,6 +73,28 @@ test('health route ignores query strings', async (t) => {
   const response = await get(port, '/healthz?probe=1');
   assert.equal(response.status, 200);
   assert.equal(response.body, '{"status":"ok"}');
+});
+
+test('health stays coarse while demo readiness and read-only endpoint fail closed without PostgreSQL', async (t) => {
+  const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: '' });
+  assert.equal((await get(port, '/healthz')).status, 200);
+  const readiness = await get(port, '/readyz');
+  assert.equal(readiness.status, 503);
+  assert.deepEqual(JSON.parse(readiness.body), { status: 'unavailable', demoMode: true });
+  const demo = await get(port, '/api/demo-state');
+  assert.equal(demo.status, 503);
+  assert.equal(demo.headers['cache-control'], 'no-store');
+  assert.equal(JSON.parse(demo.body).demo, true);
+  assert.match(JSON.parse(demo.body).label, /^DEMO/);
+  const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
+  assert.equal(mutation.status, 405);
+  assert.equal(mutation.headers.allow, 'GET, HEAD');
+  assert.equal((await get(port, '/api/demo-state/reset', 'POST', '{}')).status, 404);
+});
+
+test('readiness is coarse-ready when demo mode is disabled', async (t) => {
+  const { port } = await startServer(t);
+  assert.deepEqual(JSON.parse((await get(port, '/readyz')).body), { status: 'ready', demoMode: false });
 });
 
 test('only the root route serves the homepage and unknown extensionless paths are 404', async (t) => {

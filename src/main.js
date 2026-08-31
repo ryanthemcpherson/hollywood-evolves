@@ -22,6 +22,77 @@ const instrument = document.querySelector('.instrument');
 const instrumentStage = document.querySelector('.instrument-stage');
 const instrumentTabs = [...document.querySelectorAll('[data-instrument-tab]')];
 const instrumentPanels = [...document.querySelectorAll('[data-instrument-panel]')];
+const demoBanner = document.querySelector('.demo-banner');
+
+function demoUnavailable() {
+  document.documentElement.dataset.demoState = 'unavailable';
+  if (demoBanner) demoBanner.innerHTML = '<strong>DEMO DATA UNAVAILABLE</strong><span>Illustrative values could not be loaded. Draft questions remain not open and unresolved; no live values are shown.</span>';
+  const head = document.querySelector('.instrument-head b');
+  if (head) head.textContent = 'DEMO DATA UNAVAILABLE · NOT OPEN';
+  instrumentPanels.forEach((panel) => { panel.append(' DEMO DATA UNAVAILABLE. No sample values are shown.'); });
+}
+
+function renderDemoState(payload) {
+  const validText = (value, maximum = 200) => typeof value === 'string' && value.length > 0 && value.length <= maximum;
+  const validPair = ({ yes, no } = {}) => Number.isInteger(yes) && Number.isInteger(no) && yes >= 0 && no >= 0 && yes + no === 100;
+  const validMetadata = payload?.metadata && Number.isInteger(payload.metadata.seedVersion)
+    && validText(payload.metadata.asOf) && !Number.isNaN(Date.parse(payload.metadata.asOf));
+  const validViews = Array.isArray(payload?.headline?.views) && payload.headline.views.length === 3
+    && payload.headline.views.every((view) => validPair(view) && validText(view.label, 40) && validText(view.status));
+  const validQuestions = Array.isArray(payload?.questions) && payload.questions.length === 8
+    && payload.questions.every((question) => validPair(question) && /^question-0[1-8]$/.test(question.displayId) && validText(question.status));
+  const validOutcome = payload?.headline?.outcome?.state === 'unresolved'
+    && validText(payload.headline.outcome.threshold, 500) && validText(payload.headline.outcome.deadline, 100);
+  if (payload?.demo !== true || !validText(payload.label) || !validMetadata || !validViews || !validQuestions
+    || !Array.isArray(payload.headline.evidence) || payload.headline.evidence.length < 1 || !validOutcome) throw new Error('Invalid demo payload');
+  document.documentElement.dataset.demoState = 'ready';
+  if (demoBanner) {
+    const strong = document.createElement('strong');
+    const detail = document.createElement('span');
+    strong.textContent = payload.label;
+    detail.textContent = `Display-only sample values · seed ${payload.metadata.seedVersion} · as of ${new Date(payload.metadata.asOf).toLocaleDateString('en-US', { timeZone: 'UTC' })}. Not live forecasts or community input.`;
+    demoBanner.replaceChildren(strong, detail);
+  }
+  const [evidencePanel, viewsPanel, outcomePanel] = instrumentPanels;
+  evidencePanel.textContent = `Evidence · DEMO. ${payload.headline.evidence.length} illustrative signals: ${payload.headline.evidence.map(({ status }) => status).join(' · ')}.`;
+  viewsPanel.textContent = `Three views · DEMO. ${payload.headline.views.map(({ label, yes, no }) => `${label} ${yes}% YES / ${no}% NO`).join(' · ')}.`;
+  outcomePanel.textContent = `Outcome · DEMO. Unresolved. Threshold: ${payload.headline.outcome.threshold} Deadline: ${payload.headline.outcome.deadline}.`;
+  const gate = document.querySelector('.forecast-gate');
+  if (gate) gate.innerHTML = '<small>DEMO OUTCOME</small><strong>—</strong><span>Unresolved · sample only</span>';
+  const head = document.querySelector('.instrument-head b');
+  if (head) head.textContent = 'DEMO · NOT OPEN · UNRESOLVED';
+  const foot = document.querySelector('.instrument-foot span');
+  if (foot) foot.textContent = `DEMO · ${payload.headline.evidence.length} illustrative signals · unresolved`;
+
+  const ledgerRows = [...document.querySelectorAll('.ledger tbody tr')];
+  payload.headline.views.forEach((view, index) => {
+    const cells = ledgerRows[index]?.querySelectorAll('td');
+    if (!cells?.length) return;
+    cells[0].textContent = `${view.yes}% YES / ${view.no}% NO`;
+    cells[1].textContent = `DEMO · ${view.status}`;
+  });
+  document.querySelector('.ledger')?.setAttribute('data-demo', 'true');
+
+  const cardsById = new Map([...document.querySelectorAll('.motion-card[data-question-id]')]
+    .map((card) => [card.dataset.questionId, card]));
+  payload.questions.forEach((question) => {
+    const card = cardsById.get(question.displayId);
+    if (!card) return;
+    card.dataset.demo = 'true';
+    let aggregate = card.querySelector('.demo-card-aggregate');
+    if (!aggregate) {
+      aggregate = document.createElement('p');
+      aggregate.className = 'demo-card-aggregate';
+      card.querySelector('.motion-card-link')?.append(aggregate);
+    }
+    aggregate.textContent = `DEMO · ${question.yes}% YES / ${question.no}% NO · ${question.status}`;
+  });
+}
+
+fetch('/api/demo-state', { cache: 'no-store' })
+  .then(async (response) => { if (!response.ok) throw new Error('Demo unavailable'); return response.json(); })
+  .then(renderDemoState)
+  .catch(demoUnavailable);
 
 function selectInstrumentState(state, moveFocus = false) {
   const selectedTab = instrumentTabs.find((tab) => tab.dataset.instrumentTab === state);

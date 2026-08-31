@@ -1,5 +1,11 @@
 # Design Audit — Rejected Direction Rebuild
 
+## PostgreSQL demo-data pass
+
+The landing page carries a persistent high-contrast `DEMO — Illustrative sample data` disclosure. PostgreSQL hydrates the Evidence / Three views / Outcome instrument, headline ledger, and eight question cards from one deterministic read-only payload. Every aggregate region repeats the demo marker; failures become `DEMO DATA UNAVAILABLE`. Local Yes/No calls remain visually and technically separate.
+
+At desktop widths the truthful Spotify, Apple Music, and YouTube pending destinations form a compact dock directly below the 520px hero, keeping all three names and pending statuses inside the initial 1366×768 and 1440×900 viewport. The dock retains square edges, canonical tokens, non-link semantics, and null URL state. Mobile layouts stack naturally.
+
 Audit date: 2026-08-30
 Surface reviewed: responsive production preview homepage
 

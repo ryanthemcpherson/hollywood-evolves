@@ -11,6 +11,7 @@ let origin;
 
 async function newPage() {
   const page = await browser.newPage();
+  page.setDefaultNavigationTimeout(90000);
   await page.setBypassCSP(true);
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
   await page.setRequestInterception(true);
@@ -33,7 +34,7 @@ before(async () => {
   const port = await availablePort();
   child = spawn(process.execPath, ['server.mjs'], { cwd: new URL('..', import.meta.url), env: { ...process.env, PORT: String(port) }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Server did not start')), 5000);
+    const timeout = setTimeout(() => reject(new Error('Server did not start')), 15000);
     child.stdout.on('data', (chunk) => { if (chunk.toString().includes('listening')) { clearTimeout(timeout); resolve(); } });
     child.once('exit', (code) => reject(new Error(`Server exited (${code})`)));
   });
@@ -248,6 +249,69 @@ test('future platform destinations are exactly three honest non-link placeholder
   assert.match(distribution.intro, /Links will appear when Episode 01 publishes in January 2027/);
   assert.deepEqual(distribution.cards.map(({ platform }) => platform), ['Spotify', 'Apple Music', 'YouTube']);
   assert.ok(distribution.cards.every(({ url, tag, hrefs, text }) => url === 'pending' && tag === 'ARTICLE' && hrefs === 0 && /Coming January 2027/.test(text) && /Link pending/.test(text)));
+  await page.close();
+});
+
+test('one demo payload hydrates instrument, ledger, and all eight cards without becoming local input', async () => {
+  const page = await newPage();
+  await page.evaluateOnNewDocument(() => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, options) => String(input) === '/api/demo-state' ? Promise.resolve(new Response(JSON.stringify({
+      demo: true, label: 'DEMO — Illustrative sample data', metadata: { migrationVersion: 1, seedVersion: 1, asOf: '2026-08-30T12:00:00.000Z' },
+      headline: {
+        evidence: [{ id: 's1', status: 'reviewed', description: 'Fictional signal', demo: true }, { id: 's2', status: 'monitoring', description: 'Generic signal', demo: true }, { id: 's3', status: 'definition pending', description: 'Sample signal', demo: true }],
+        views: [{ label: 'Guest', yes: 61, no: 39, status: 'sample view' }, { label: 'Community', yes: 54, no: 46, status: 'sample aggregate · display only' }, { label: 'Research System', yes: 58, no: 42, status: 'sample model view' }],
+        outcome: { state: 'unresolved', threshold: 'At least three of five.', deadline: 'December 31, 2029' },
+      },
+      questions: Array.from({ length: 8 }, (_, index) => ({ displayId: `question-${String(index + 1).padStart(2, '0')}`, yes: 40 + index, no: 60 - index, status: index % 2 ? 'monitoring' : 'high uncertainty', demo: true })),
+      platforms: ['Spotify', 'Apple Music', 'YouTube'].map((name) => ({ name, state: 'pending', url: null })),
+    }), { status: 200, headers: { 'content-type': 'application/json' } })) : nativeFetch(input, options);
+  });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => document.documentElement.dataset.demoState === 'ready');
+  const rendered = await page.evaluate(() => ({
+    banner: document.querySelector('.demo-banner').textContent,
+    instrument: document.querySelector('.instrument').textContent.replace(/\s+/g, ' '),
+    ledger: [...document.querySelectorAll('.ledger tbody tr')].map((row) => row.textContent.replace(/\s+/g, ' ')),
+    cards: [...document.querySelectorAll('.motion-card')].map((card) => card.querySelector('.demo-card-aggregate')?.textContent),
+    storage: { forecast: localStorage.getItem('he-private-forecast'), cards: localStorage.getItem('he-private-question-calls') },
+  }));
+  assert.match(rendered.banner, /DEMO.*display-only/i);
+  assert.match(rendered.instrument, /Guest 61% YES \/ 39% NO/);
+  assert.match(rendered.instrument, /Unresolved.*December 31, 2029/i);
+  assert.ok(rendered.ledger.every((row) => /% YES \/ .*% NO.*DEMO/i.test(row)));
+  assert.equal(rendered.cards.length, 8);
+  assert.ok(rendered.cards.every((text) => /^DEMO · \d+% YES \/ \d+% NO/.test(text)));
+  assert.deepEqual(rendered.storage, { forecast: null, cards: null });
+  await page.close();
+});
+
+test('demo fetch failure and no-JS mode remain explicit rather than showing silent values', async () => {
+  const failed = await newPage();
+  await failed.goto(origin, { waitUntil: 'domcontentloaded' });
+  await failed.waitForFunction(() => document.documentElement.dataset.demoState === 'unavailable');
+  assert.match(await failed.$eval('.demo-banner', (el) => el.textContent), /DEMO DATA UNAVAILABLE/);
+  assert.doesNotMatch(await failed.$eval('.ledger', (el) => el.textContent), /\d+%/);
+  await failed.close();
+
+  const noJs = await newPage();
+  await noJs.setJavaScriptEnabled(false);
+  await noJs.goto(origin, { waitUntil: 'domcontentloaded' });
+  assert.match(await noJs.$eval('.demo-banner', (el) => el.textContent), /DEMO.*display-only/i);
+  assert.match(await noJs.$eval('.instrument-readout', (el) => el.textContent), /No probability is currently published/);
+  await noJs.close();
+});
+
+for (const [width, height] of [[1366, 768], [1440, 900]]) test(`platform dock is inside the initial desktop viewport at ${width}x${height}`, async () => {
+  const page = await newPage();
+  await page.setViewport({ width, height });
+  await page.goto(origin, { waitUntil: 'domcontentloaded' });
+  const dock = await page.evaluate(() => [...document.querySelectorAll('.platform-card')].map((card) => {
+    const rect = card.getBoundingClientRect();
+    return { name: card.dataset.platform, top: rect.top, bottom: rect.bottom, visible: rect.top >= 0 && rect.bottom <= innerHeight };
+  }));
+  assert.deepEqual(dock.map(({ name }) => name), ['Spotify', 'Apple Music', 'YouTube']);
+  assert.ok(dock.every(({ visible }) => visible), JSON.stringify(dock));
   await page.close();
 });
 

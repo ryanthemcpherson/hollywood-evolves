@@ -26,7 +26,7 @@ Each episode explains a prior industry transition, examines today's operating si
 
 ## Preview website
 
-This repository contains the static Vite preview for `hollywoodevolves.mcpherson.app`. The preview is deliberately `noindex`; it contains no live episode, submitted audience data, or published forecast values. Episode 01 records in November 2026 and publishes in January 2027.
+This repository contains the Vite/Node preview for `hollywoodevolves.mcpherson.app`. The preview is deliberately `noindex`; it contains no live episode or published forecast values. Its optional PostgreSQL-backed demo mode is unmistakably labeled and keeps deterministic display-only samples isolated from audience and commentary data. Episode 01 records in November 2026 and publishes in January 2027.
 
 ### Local development
 
@@ -51,7 +51,7 @@ The homepage is a subject-first, segmented editorial scroll. Its opening keeps �
 
 Ian McPherson's supplied portrait appears once, only in the host/credibility chapter. The dark forecast chapter preserves the empty Guest, Community, and Research System states and local-only binary preview. The season introduces an early pool of eight approved questions in a CSS 3D discovery field with clickable, browser-local `YES / NO` calls, then preserves the compact ruled index and seven native disclosure contracts below. The pool does not imply one question per episode; the operating brief calls for three. Motion pauses during hover or keyboard focus and becomes a static scrollable field when reduced motion is requested.
 
-The interface progressively enhances its mobile menu, local-only binary call, sharing tools, and three-step hero instrument. The instrument’s Evidence, Three views, and Outcome tabs update a truthful process readout and visual focus; the visible status says the question is not open, unresolved, and has no published forecasts. Fine pointers add a restrained, resettable perspective response. With JavaScript disabled, primary navigation and all three explanatory instrument stages remain available, and native `details` elements still expose draft resolution contracts. Reduced-motion preferences disable the instrument response and all automated question-field motion.
+The interface progressively enhances its mobile menu, local-only binary call, sharing tools, and three-step hero instrument. In demo mode, one read-only payload hydrates its illustrative evidence, separately labeled sample views, unresolved outcome, headline ledger, and all eight moving cards. Sample percentages are never written to browser storage or counted as direct responses. A persistent disclosure exists before JavaScript; database failure becomes `DEMO DATA UNAVAILABLE`, never silent zeros. Fine pointers add a restrained, resettable perspective response. With JavaScript disabled, the disclosure, primary navigation, and all three explanatory instrument stages remain available. Reduced-motion preferences disable the instrument response and all automated question-field motion.
 
 The repository also includes an owned audience-signal intake for immutable question IDs: `/poll/<question-id>?src=<source>` and the compact `/?poll=<question-id>&src=<source>` form. Open questions use an accessible optional modal with explicit Yes/No, optional 1–99% confidence, one-response-per-browser safeguards, aggregate-only public results, source attribution, rate limits, idempotency, and an audit trail. Direct forecasts and LinkedIn reaction signals remain separate. Episode 01 is still `draft`; its poll route truthfully says it is not open and accepts no submissions. See `docs/audience-signal-intake.md` for the data model, LinkedIn permission boundary/manual CSV fallback, opening checklist, and deployment plan.
 
@@ -67,9 +67,9 @@ The homepage keeps only compact footer links to static Accessibility, Privacy, a
 
 - Build: `npm run build`
 - Start: `npm start`
-- Health check: `/healthz`
+- Readiness check: `/readyz` (`/healthz` remains coarse)
 
-The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, serves the homepage only at `/`, resolves configured immutable poll routes, exposes aggregate question APIs, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a real `404.html` for unknown paths. Before any question opens, mount persistent storage at `/data`, set `AUDIENCE_DATA_PATH=/data/audience-signals.json`, and provision both secrets in `.env.example`; the file-backed implementation must run as one replica.
+The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, and exposes coarse health plus database-aware readiness. Add a Railway PostgreSQL service, reference its `DATABASE_URL` from the app, and set `DEMO_MODE=true`; see [`docs/demo-data-operations.md`](docs/demo-data-operations.md) for schema/seed safety, cutover, and rollback. Commentary remains off unless its complete, separate fail-closed configuration is explicitly supplied. Before any real audience question opens, mount persistent storage at `/data`, set `AUDIENCE_DATA_PATH=/data/audience-signals.json`, and provision its secrets.
 
 ```bash
 npm run build
