@@ -10,6 +10,10 @@ The historical product brief proposes that each episode explain a prior industry
 
 ## Current scope
 
+The active rebuild is documented in [`docs/LIVE_ROAST_REBUILD.md`](docs/LIVE_ROAST_REBUILD.md). Its first screen is Past / Present / Forecast with one Episode 01 action and truthful pending non-links for Spotify, Apple Music, and YouTube. Illustrative aggregates are PostgreSQL-backed, explicitly labeled DEMO, and fail closed to “Demo data unavailable.”
+
+Set both `DEMO_MODE=true` and `DATABASE_URL` to enable the isolated `hollywood_evolves_demo` schema. `/healthz` is coarse; `/readyz` becomes database-aware in demo mode; `/api/demo-state` is read-only and no-store. See [`docs/demo-data-operations.md`](docs/demo-data-operations.md).
+
 1. A responsive editorial website covering the program premise, Episode 01 question, eight editorial themes, host, and method.
 2. Browser-local `YES / NO` calls for the Episode 01 premise and theme questions; these choices are not submitted, published, or counted.
 3. A visible threshold, deadline, and evidence frame for each editorial question.
@@ -28,7 +32,7 @@ The historical product brief proposes that each episode explain a prior industry
 
 ## Public website
 
-This repository serves the standalone editorial site at `hollywoodevolves.mcpherson.app`. It publishes no submitted audience data, illustrative percentages, or forecast values. Search indexing remains disabled until Episode 01's evidence-source contract, sitemap, and discovery behavior are approved together.
+This repository serves the standalone editorial site at `hollywoodevolves.mcpherson.app`. It publishes no submitted audience data or live forecast values. When demo mode is explicitly enabled, it publishes only deterministic PostgreSQL-backed illustrative percentages that are visibly labeled **DEMO** and never counted as community input. Search indexing remains disabled until Episode 01's evidence-source contract, sitemap, and discovery behavior are approved together.
 
 ### Local development
 
@@ -51,7 +55,7 @@ Browser tests automatically discover Chrome or Edge on Windows and Chromium or C
 
 ### Homepage composition
 
-The homepage is a subject-first, segmented editorial scroll on one 12-column grid. Its opening names the Hollywood/media-technology shift, keeps “Operating System” together where the viewport supports it, and offers one primary route to the Episode 01 question. A code-built supply-chain plate, historical route, and signal waveform carry the physical-to-cloud story without generated imagery or decorative motion.
+The homepage is a subject-first, segmented editorial scroll on one shared grid. Its opening names the Hollywood/media-technology shift, keeps “Operating System” together, offers one primary route to the Episode 01 question, and uses a keyboard-operable Past / Present / Forecast instrument as the principal visual. A compact, explicitly unpublished destination dock keeps Spotify, Apple Music, and YouTube visible as pending semantic non-links without generated imagery or decorative motion.
 
 Ian McPherson's supplied portrait appears once, only in the host chapter. The Episode 01 chapter presents one measurable question with its threshold, deadline, evidence class, private browser-local `YES / NO` call, and canonical sharing. A concise eight-question editorial pool maps possible lines of inquiry without assigning an episode order; questions 02–08 are inspectable native details with no voting controls, and enhanced mobile reveals their contracts on demand. The Episode 01 call is never submitted, published, or counted.
 
@@ -71,7 +75,8 @@ The homepage keeps only compact footer links to static Accessibility, Privacy, a
 
 - Build: `npm run build`
 - Start: `npm start`
-- Health check: `/healthz`
+- Railway health check: `/readyz` (dependency-aware in demo mode)
+- Coarse process health: `/healthz`
 
 The Node server (Node 22.12.0+) serves `dist/`, binds to `0.0.0.0` on Railway's `$PORT`, serves the homepage only at `/`, resolves configured immutable poll routes, exposes aggregate question APIs, caches fingerprinted Vite assets immutably while keeping stable asset URLs refreshable, and serves a styled `404.html` for unknown paths. Every response carries the shared security headers, including a same-origin CSP without inline-style permission and one-year HSTS with subdomains. Before any question opens, mount persistent storage at `/data`, set `AUDIENCE_DATA_PATH=/data/audience-signals.json`, and provision both secrets in `.env.example`; the file-backed implementation must run as one replica.
 
