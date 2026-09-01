@@ -46,5 +46,5 @@ Episode 01 has a public editorial question, threshold, deadline, and evidence cl
 
 ## Tick status
 
-- **Tick 1 — implementation and automated gates:** safe fragment handling, truthful unassigned pool data, and removal of competing pool Y/N controls are fixed locally; automated gates are complete. Independent re-review remains pending, with no independent PASS claimed.
-- **Tick 2 — browser matrix and deep visual dogfood:** pending conductor scheduling; this roadmap makes no public promise.
+- **Tick 1 — implementation and automated gates:** complete at implementation SHA `bc60ecc`. Automated gates passed 86/86. Independent code/security and editorial-design re-reviews both returned PASS for that exact SHA, with no blockers.
+- **Tick 2 — built-site browser dogfood:** pending. The six-viewport automated matrix is green; the next tick will inspect the built composition and chapter starts in a real browser before any merge or deployment.
