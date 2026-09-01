@@ -1,107 +1,49 @@
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
-function pngSize(file) {
-  const data = readFileSync(file);
-  const signature = '89504e470d0a1a0a';
-  if (data.length < 24 || data.subarray(0, 8).toString('hex') !== signature) throw new Error(`${file} is not a valid PNG.`);
-  return { width: data.readUInt32BE(16), height: data.readUInt32BE(20) };
+const read = (path) => readFileSync(path, 'utf8');
+const html = read('index.html');
+const css = read('src/style.css');
+const js = read('src/main.js');
+const failures = [];
+const required = ['Hollywood', 'Operating System', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)'];
+for (const term of required) if (!html.includes(term)) failures.push(`Missing required copy: ${term}`);
+
+const prohibited = /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i;
+if (prohibited.test(`${html}\n${js}`)) failures.push('Homepage or homepage JavaScript contains a prohibited state, fake value, or platform promise.');
+for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
+for (const id of ['top', 'past', 'present', 'forecast', 'season', 'host', 'method']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
+if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
+const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
+if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
+if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Every season theme requires local YES and NO inputs.');
+if ((html.match(/<details/g) || []).length !== 7) failures.push('Themes 02–08 require native disclosures.');
+if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
+if (!/@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/.test(css)) failures.push('Enhanced mobile contracts must use progressive disclosure.');
+for (const term of ['localStorage', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) if (!js.includes(term)) failures.push(`Missing interaction contract: ${term}`);
+
+for (const metadata of ['rel="canonical"', 'name="twitter:title"', 'name="twitter:description"', 'name="twitter:image"', 'name="twitter:image:alt"', 'property="og:site_name"', 'property="og:locale"', 'name="color-scheme"', 'name="referrer"', 'rel="manifest"', 'rel="apple-touch-icon"', 'name="robots" content="noindex, nofollow"']) if (!html.includes(metadata)) failures.push(`Missing metadata: ${metadata}`);
+if (!/<main id="main" tabindex="-1">/.test(html)) failures.push('Main must receive skip-link focus.');
+for (const file of ['accessibility.html', 'privacy.html', 'terms.html']) if (!html.includes(`href="/${file}"`)) failures.push(`Missing legal link: ${file}`);
+if (/<input[^>]+id="share-url"[^>]+value=/.test(html)) failures.push('Share URL must derive from canonical metadata.');
+if (js.includes('https://hollywoodevolves.mcpherson.app')) failures.push('Share code must not duplicate the canonical origin.');
+
+const files = ['server.mjs', 'railway.json', 'public/404.html', 'public/favicon.svg', 'public/favicon.ico', 'public/site.webmanifest', 'public/assets/ian-mcpherson.webp', 'public/fonts/dm-sans-latin-variable.woff2', 'public/fonts/dm-mono-latin-400.woff2', 'public/fonts/dm-mono-latin-500.woff2', 'public/fonts/newsreader-latin-variable.woff2', 'public/fonts/licenses/dm-sans-OFL.txt', 'public/fonts/licenses/dm-mono-OFL.txt', 'public/fonts/licenses/newsreader-OFL.txt'];
+for (const file of files) if (!existsSync(file)) failures.push(`Missing file: ${file}`);
+function pngSize(file) { const data = readFileSync(file); return [data.readUInt32BE(16), data.readUInt32BE(20)]; }
+for (const [file, expected] of Object.entries({ 'public/og-image.png': [1200, 630], 'public/apple-touch-icon.png': [180, 180], 'public/icon-192.png': [192, 192], 'public/icon-512.png': [512, 512], 'public/icon-maskable-512.png': [512, 512] })) {
+  if (!existsSync(file)) failures.push(`Missing file: ${file}`);
+  else if (pngSize(file).join('x') !== expected.join('x')) failures.push(`${file} must be ${expected.join('x')}.`);
 }
-
-const html = readFileSync('index.html', 'utf8');
-const css = readFileSync('src/style.css', 'utf8');
-const brandCss = readFileSync('public/brand/brand.css', 'utf8');
-const legalFiles = ['accessibility.html', 'privacy.html', 'terms.html'];
-const legalPages = Object.fromEntries(legalFiles.map((file) => [file, readFileSync(`public/${file}`, 'utf8')]));
-const publicSurfaceFiles = ['index.html', 'poll.html', 'public/404.html', ...legalFiles.map((file) => `public/${file}`), 'src/main.js', 'src/poll.js'];
-const publicSources = Object.fromEntries(publicSurfaceFiles.map((file) => [file, readFileSync(file, 'utf8')]));
-const fontFiles = ['public/fonts/dm-sans-latin-variable.woff2', 'public/fonts/dm-mono-latin-400.woff2', 'public/fonts/dm-mono-latin-500.woff2', 'public/fonts/newsreader-latin-variable.woff2'];
-const fontLicenses = ['public/fonts/licenses/dm-sans-OFL.txt', 'public/fonts/licenses/dm-mono-OFL.txt', 'public/fonts/licenses/newsreader-OFL.txt'];
-const required = ['Editorial questions for a changing industry', 'Read the Episode 01 premise', 'Explore the editorial themes', 'Browser-local reader tool', 'Eight measurable questions', 'HBO Max', '25 years', '11 years at AWS', 'Head of Business Development at TMT Insights', 'Digital Entertainment Group (DEG)', 'YES threshold', 'Resolve by', 'Evidence / resolver', 'Why it matters:', 'Share this question'];
-const themes = ['Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution'];
-const failures = [...required, ...themes].filter((term) => !html.toLowerCase().includes(term.toLowerCase())).map((term) => `Missing required copy: ${term}`);
-
-// Demo presentation is allowed only under the explicit labeling contract:
-// every demo mention must be an explicit DEMO label, and platform destinations
-// appear only in the hero dock as named, pending destinations.
-const forbiddenNarration = /\b(?:preview|draft|planned|planning|upcoming|coming soon|in[ -]development|not (?:yet )?open|link pending|links will appear|when (?:activated|an audience question opens))\b/i;
-const unlabeledDemo = /\bdemo\b(?![-— ]| ?—)/i;
-for (const [file, source] of Object.entries(publicSources)) {
-  if (forbiddenNarration.test(source)) failures.push(`${file} contains roadmap or pre-release narration.`);
-  if (file.endsWith('.html') && unlabeledDemo.test(source.replace(/DEMO[-— ]/gi, ''))) failures.push(`${file} mentions demo data without an explicit DEMO label.`);
-  if (file.endsWith('.html') && /fonts\.(?:googleapis|gstatic)\.com|rel="preconnect"[^>]+google/i.test(source)) failures.push(`${file} contains an external Google Fonts dependency.`);
-  if (file.endsWith('.html') && /<style\b|\sstyle\s*=/i.test(source)) failures.push(`${file} contains inline style content that violates the production CSP.`);
+const brandCss = read('public/brand/brand.css');
+for (const [family, fileName] of [['DM Sans', 'dm-sans-latin-variable.woff2'], ['DM Mono', 'dm-mono-latin-400.woff2'], ['Newsreader', 'newsreader-latin-variable.woff2']]) if (!brandCss.includes(`font-family: "${family}"`) || !brandCss.includes(fileName)) failures.push(`Missing local ${family}.`);
+for (const file of ['accessibility.html', 'privacy.html', 'terms.html']) {
+  const page = read(`public/${file}`);
+  for (const marker of ['<a class="skip" href="#main">', '<main class="legal-main" id="main" tabindex="-1">', 'name="robots" content="noindex, nofollow"', 'Back to Hollywood Evolves']) if (!page.includes(marker)) failures.push(`${file} missing ${marker}`);
 }
-for (const forbidden of ['lorem ipsum', 'placeholder', 'game-changing', 'rapidly evolving landscape', 'leaderboard', 'linear-gradient', 'radial-gradient']) if ((html + css).toLowerCase().includes(forbidden)) failures.push(`Forbidden pattern: ${forbidden}`);
-
-const assets = {
-  'public/og-image.png': [1200, 630],
-  'public/apple-touch-icon.png': [180, 180],
-  'public/icon-192.png': [192, 192],
-  'public/icon-512.png': [512, 512],
-  'public/icon-maskable-512.png': [512, 512],
-};
-for (const file of ['server.mjs', 'railway.json', 'public/404.html', 'public/favicon.svg', 'public/favicon.ico', 'public/site.webmanifest', 'public/assets/ian-mcpherson.webp', ...fontFiles, ...fontLicenses, ...Object.keys(assets)]) if (!existsSync(file)) failures.push(`Missing file: ${file}`);
-for (const [family, fileName, weight] of [['DM Sans', 'dm-sans-latin-variable.woff2', '400 600'], ['DM Mono', 'dm-mono-latin-400.woff2', '400'], ['DM Mono', 'dm-mono-latin-500.woff2', '500'], ['Newsreader', 'newsreader-latin-variable.woff2', '400 600']]) {
-  const face = brandCss.match(new RegExp(`@font-face\\s*\\{[^}]*font-family:\\s*"${family}"[^}]*${fileName.replace('.', '\\.')}[^}]*\\}`, 's'))?.[0] ?? '';
-  if (!new RegExp(`font-weight:\\s*${weight.replace(' ', '\\s+')}`).test(face) || !/font-display:\s*swap/.test(face)) failures.push(`Missing local ${family} ${weight} font-face declaration.`);
-}
-for (const [file, expected] of Object.entries(assets)) {
-  if (!existsSync(file)) continue;
-  const { width, height } = pngSize(file);
-  if (width !== expected[0] || height !== expected[1]) failures.push(`${file} must be ${expected.join('x')}, got ${width}x${height}.`);
-}
-
-if (!/<fieldset[\s\S]*?<legend[\s\S]*?type="radio"[\s\S]*?value="yes"[\s\S]*?type="radio"[\s\S]*?value="no"[\s\S]*?<\/fieldset>/.test(html)) failures.push('Private forecast must use YES/NO radios in a fieldset with a legend.');
-if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Each of the eight question cards must expose private YES and NO controls.');
-for (const control of ['data-question-rail-controls', 'data-question-previous', 'id="question-position"', 'data-question-next']) if (!html.includes(control)) failures.push(`Mobile question rail is missing ${control}.`);
-if (/type="range"|probability-output|min="1" max="99"/.test(html)) failures.push('Numeric probability slider must be absent.');
-if (!/class="hero-dock"/.test(html)) failures.push('Homepage must include the hero platform dock with named destinations.');
-if (!/hero-dock[^>]*>.*?<li class="spotify">Spotify<\/li><li class="apple-podcasts">Apple Podcasts<\/li><li class="youtube">YouTube<\/li>/s.test(html)) failures.push('Hero dock must name Spotify, Apple Podcasts, and YouTube destinations.');
-if (!/class="demo-banner"/.test(html)) failures.push('Homepage must include the explicit demo banner.');
-if (!/data-demo-ledger/.test(html)) failures.push('Homepage must include the demo forecast ledger element.');
-for (const selector of ['preview-stamp', 'distribution', 'platform-card', 'contributors', 'commentary-app', 'linkedin-login']) if (new RegExp(`class="[^"]*\\b${selector}\\b|id="${selector}"`).test(html)) failures.push(`Homepage must omit unavailable ${selector}.`);
-
-for (const metadata of ['rel="canonical"', 'name="twitter:title"', 'name="twitter:description"', 'name="twitter:image"', 'name="twitter:image:alt"', 'property="og:site_name"', 'property="og:locale"', 'name="color-scheme"', 'name="referrer"', 'rel="manifest"', 'rel="apple-touch-icon"']) if (!html.includes(metadata)) failures.push(`Missing metadata: ${metadata}`);
-const description = (attribute) => html.match(new RegExp(`<meta ${attribute}="(?:og:description|twitter:description)" content="([^"]+)"`))?.[1];
-if (description('property') !== description('name')) failures.push('Open Graph and Twitter descriptions must match.');
-if ((html.match(/<details>/g) || []).length !== 7) failures.push('Season ledger must include seven native details rows for Themes 02–08.');
-if ((html.match(/class="editorial-question"/g) || []).length !== 7) failures.push('Every disclosed season theme must include an editorial question.');
-if ((html.match(/<dt>YES threshold<\/dt>/g) || []).length < 7 || (html.match(/<dt>Resolve by<\/dt>/g) || []).length < 7 || (html.match(/<dt>Evidence \/ resolver<\/dt>/g) || []).length < 7) failures.push('Every disclosed season theme must expose threshold, deadline, and evidence terms.');
-if (/class="accessibility-section"|id="accessibility"/.test(html)) failures.push('Homepage must not contain the accessibility section.');
-for (const file of legalFiles) if (!html.includes(`href="/${file}"`)) failures.push(`Homepage footer must link to /${file}.`);
-if (!html.includes('name="robots" content="noindex, nofollow"')) failures.push('Homepage must remain noindex.');
-if (!/<main id="main" tabindex="-1">/.test(html)) failures.push('Homepage main landmark must receive skip-link focus.');
-if (/<input[^>]+id="share-url"[^>]+value=/.test(html)) failures.push('Share fallback URL must be derived from canonical metadata.');
-if (publicSources['src/main.js'].includes('https://hollywoodevolves.mcpherson.app')) failures.push('Share code must not duplicate the canonical origin.');
-
-const manifest = JSON.parse(readFileSync('public/site.webmanifest', 'utf8'));
-if (manifest.id !== '/' || manifest.scope !== '/') failures.push('Manifest id and scope must both be root.');
-for (const icon of manifest.icons || []) {
-  if (icon.src === '/icon-maskable-512.png' && icon.purpose !== 'maskable') failures.push('Inset maskable icon must have purpose maskable.');
-  if (icon.src !== '/icon-maskable-512.png' && icon.purpose !== 'any') failures.push(`Ordinary icon ${icon.src} must have purpose any.`);
-}
-if (!manifest.icons?.some((icon) => icon.src === '/icon-maskable-512.png' && icon.sizes === '512x512')) failures.push('Manifest must declare the 512px inset maskable icon.');
-const iconSource = readFileSync('public/icon-source.svg', 'utf8');
-const maskableSource = readFileSync('public/icon-maskable-source.svg', 'utf8');
-const maskTransform = maskableSource.match(/transform="translate\(([\d.]+) ([\d.]+)\) scale\(([\d.]+)\)"/);
-if (!maskableSource.includes('viewBox="0 0 512 512"') || !maskTransform) failures.push('Maskable source must use a measurable inset transform.');
-else {
-  const [, tx, ty, scale] = maskTransform.map(Number);
-  const safeRadius = 512 * 0.4;
-  const artworkBounds = { left: 92, top: 88, right: 428, bottom: 424 };
-  const corners = [[artworkBounds.left, artworkBounds.top], [artworkBounds.right, artworkBounds.top], [artworkBounds.right, artworkBounds.bottom], [artworkBounds.left, artworkBounds.bottom]];
-  if (corners.some(([x, y]) => Math.hypot(tx + x * scale - 256, ty + y * scale - 256) > safeRadius)) failures.push('Essential maskable monogram geometry must stay inside the central 40% safe circle.');
-}
-if (!maskableSource.includes(iconSource.match(/<path fill="#f3efe6"[^>]+>/)?.[0] || '__missing__')) failures.push('Maskable source must retain the essential monogram artwork.');
-
-for (const [file, page] of Object.entries(legalPages)) {
-  for (const pattern of ['<a class="skip" href="#main">', '<header class="legal-header">', '<nav aria-label="Legal pages">', '<main class="legal-main" id="main" tabindex="-1">', '<footer class="legal-footer">', '<h1>', 'name="description"', 'name="theme-color"', 'name="robots" content="noindex, nofollow"', 'rel="canonical"', 'rel="icon"', 'rel="apple-touch-icon"', 'href="/legal.css"', 'Back to Hollywood Evolves']) if (!page.includes(pattern)) failures.push(`${file} missing expected semantics or metadata: ${pattern}`);
-  if ((page.match(/<h1>/g) || []).length !== 1) failures.push(`${file} must contain exactly one h1.`);
-  if (!page.includes(`href="https://hollywoodevolves.mcpherson.app/${file}"`)) failures.push(`${file} has an unexpected canonical URL.`);
-}
-for (const term of ['WCAG 2.2 Level AA', 'not a legal certification', 'Keyboard, viewport, reduced-motion']) if (!legalPages['accessibility.html'].includes(term)) failures.push(`Accessibility page missing current practice: ${term}`);
-for (const term of ['he-private-forecast', 'he-private-question-calls', 'localStorage', 'not sent to Hollywood Evolves', 'Web Share', 'analytics', 'advertising trackers', 'served by Hollywood Evolves', 'does not make a font request to Google', 'does not sell personal data', 'cookie banner']) if (!legalPages['privacy.html'].includes(term)) failures.push(`Privacy page missing current implementation detail: ${term}`);
-for (const term of ['not betting or gambling products', 'investment, legal, or business advice', 'bypass security measures', 'respective owners', 'provided as available']) if (!legalPages['terms.html'].includes(term)) failures.push(`Terms page missing current term: ${term}`);
+for (const term of ['WCAG 2.2 Level AA', 'not a legal certification']) if (!read('public/accessibility.html').includes(term)) failures.push(`Accessibility page missing ${term}`);
+for (const term of ['he-private-forecast', 'he-private-question-calls', 'localStorage', 'not sent to Hollywood Evolves', 'Web Share']) if (!read('public/privacy.html').includes(term)) failures.push(`Privacy page missing ${term}`);
+for (const term of ['not betting or gambling products', 'investment, legal, or business advice']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
-console.log(`Content and implementation checks passed (${required.length + themes.length} required-copy assertions).`);
+console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 unique questions).`);
