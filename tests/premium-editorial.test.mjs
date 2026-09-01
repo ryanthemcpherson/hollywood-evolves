@@ -32,8 +32,8 @@ test('editorial narrative is singular, subject-first, and chaptered', async () =
 
 test('mobile contract is concise and every authored target is at least 44px', async () => {
   const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
-  assert.equal((html.match(/data-question-call/g) || []).length, 14);
-  assert.doesNotMatch(html, /name="question-01-call"/);
+  assert.doesNotMatch(html, /data-question-call|compact-call|question-0[1-8]-call/);
+  assert.doesNotMatch(css, /compact-call/);
   assert.match(css, /--target:\s*44px/);
   assert.match(css, /@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /@keyframes|animation\s*:/);

@@ -16,7 +16,7 @@ if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian 
 if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
 const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
 if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
-if ((html.match(/data-question-call/g) || []).length !== 14 || /name="question-01-call"/.test(html)) failures.push('Questions 02–08 require local YES and NO inputs without duplicating the Episode 01 call.');
+if (/data-question-call|compact-call|name="question-0[1-8]-call"/.test(html) || /compact-call/.test(css) || js.includes('he-private-question-calls')) failures.push('The question pool must remain native disclosures without local voting controls or storage.');
 if ((html.match(/<details/g) || []).length !== 7) failures.push('Themes 02–08 require native disclosures.');
 if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
 if (!/@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/.test(css)) failures.push('Enhanced mobile contracts must use progressive disclosure.');
@@ -42,7 +42,7 @@ for (const file of ['accessibility.html', 'privacy.html', 'terms.html']) {
   for (const marker of ['<a class="skip" href="#main">', '<main class="legal-main" id="main" tabindex="-1">', 'name="robots" content="noindex, nofollow"', 'Back to Hollywood Evolves']) if (!page.includes(marker)) failures.push(`${file} missing ${marker}`);
 }
 for (const term of ['WCAG 2.2 Level AA', 'not a legal certification']) if (!read('public/accessibility.html').includes(term)) failures.push(`Accessibility page missing ${term}`);
-for (const term of ['he-private-forecast', 'he-private-question-calls', 'localStorage', 'not sent to Hollywood Evolves', 'Web Share']) if (!read('public/privacy.html').includes(term)) failures.push(`Privacy page missing ${term}`);
+for (const term of ['he-private-forecast', 'localStorage', 'not sent to Hollywood Evolves', 'question pool has no voting controls', 'Web Share']) if (!read('public/privacy.html').includes(term)) failures.push(`Privacy page missing ${term}`);
 for (const term of ['not betting or gambling products', 'investment, legal, or business advice']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }

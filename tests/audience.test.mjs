@@ -46,6 +46,12 @@ test('Episode 01 has an immutable draft ID and cannot publish audience values ye
   assert.ok(forecastQuestions.every(({ state, opensAt, closesAt }) => state === 'draft' && opensAt === null && closesAt === null));
 });
 
+test('only Episode 01 is assigned to an episode; pool questions remain unassigned drafts', () => {
+  assert.equal(forecastQuestions[0].episode, '01');
+  assert.deepEqual(forecastQuestions.slice(1).map(({ episode }) => episode), Array(7).fill(null));
+  assert.ok(forecastQuestions.slice(1).every(({ id, state }) => id.startsWith('he-question-') && state === 'draft'));
+});
+
 test('records a direct forecast and exposes only aggregate source-separated results', async () => {
   const store = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', now: OPEN_NOW });
   const result = await store.recordDirectResponse({

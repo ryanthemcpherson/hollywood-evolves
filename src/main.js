@@ -39,23 +39,16 @@ document.querySelector('#reset-forecast')?.addEventListener('click', () => {
   forecastChoices[0]?.focus();
 });
 
-let storedCalls = {};
-try {
-  const parsed = JSON.parse(storage.get('he-private-question-calls') || '{}');
-  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) storedCalls = parsed;
-} catch { storedCalls = {}; }
-for (const choice of document.querySelectorAll('[data-question-call]')) {
-  const questionId = choice.name.replace(/-call$/, '');
-  if (storedCalls[questionId] === choice.value) choice.checked = true;
-  choice.addEventListener('change', () => {
-    storedCalls[questionId] = choice.value;
-    storage.set('he-private-question-calls', JSON.stringify(storedCalls));
-  });
-}
-
 const disclosures = [...document.querySelectorAll('.season-slate details')];
+function fragmentElement() {
+  if (!location.hash.startsWith('#') || location.hash.length === 1) return null;
+  try {
+    const id = decodeURIComponent(location.hash.slice(1));
+    return id ? document.getElementById(id) : null;
+  } catch { return null; }
+}
 function openFragment() {
-  const item = location.hash ? document.querySelector(location.hash) : null;
+  const item = fragmentElement();
   const disclosure = item?.querySelector('details');
   if (disclosure) disclosure.open = true;
 }
@@ -89,7 +82,7 @@ function canonicalShareUrl() {
   try {
     const canonical = document.querySelector('link[rel="canonical"]')?.href;
     const url = new URL(canonical || location.href, location.href);
-    const fragmentTarget = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    const fragmentTarget = fragmentElement();
     const currentQuestion = fragmentTarget?.matches('#question-01.question-block, .season-slate > li[id]') ? fragmentTarget.id : null;
     const latestOpenQuestion = disclosures.findLast(({ open }) => open)?.closest('li[id]')?.id;
     url.hash = currentQuestion || latestOpenQuestion || 'question-01';

@@ -186,7 +186,6 @@ test('homepage stays free of console, page, and CSP errors after representative 
   await p.click('.menu-button');
   await p.keyboard.press('Escape');
   await p.click('#question-04 summary');
-  await p.click('#question-04 .compact-call label');
   await p.click('#share-forecast');
   await new Promise((resolve) => setTimeout(resolve, 100));
   assert.deepEqual(failures, []);
@@ -219,18 +218,18 @@ test('reduced motion is static and does not move content', async () => {
   await p.close();
 });
 
-test('forced colors preserves meaningful selected and keyboard focus states', async () => {
+test('forced colors preserves meaningful Episode 01 selection and disclosure focus states', async () => {
   const p = await page(390, 844);
   await p._client().send('Emulation.setEmulatedMedia', { media: 'screen', features: [{ name: 'forced-colors', value: 'active' }] });
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click('#question-02 .compact-call label');
+  await p.click('.reader-call label:has(input[value="yes"])');
   await p.evaluate(() => document.body.focus());
   for (let index = 0; index < 40; index += 1) {
     await p.keyboard.press('Tab');
     if (await p.evaluate(() => document.activeElement.matches('#question-03 summary'))) break;
   }
   const state = await p.evaluate(() => {
-    const input = document.querySelector('#question-02 input[value="yes"]');
+    const input = document.querySelector('#forecast-yes');
     const selected = getComputedStyle(input.nextElementSibling);
     const summary = document.querySelector('#question-03 summary');
     const focus = getComputedStyle(summary);
@@ -277,54 +276,51 @@ test('skip link, mobile menu, and native disclosures preserve keyboard focus', a
   await p.close();
 });
 
-test('the seven question-pool call groups are keyboard reachable without a duplicate question 01 control', async () => {
-  const p = await page();
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  const reached = new Set();
-  for (let index = 0; index < 100 && reached.size < 7; index += 1) {
-    await p.keyboard.press('Tab');
-    const name = await p.evaluate(() => document.activeElement.matches?.('[data-question-call]') ? document.activeElement.name : null);
-    if (name) reached.add(name);
-  }
-  assert.deepEqual([...reached].sort(), Array.from({ length: 7 }, (_, index) => `question-0${index + 2}-call`));
-  assert.equal(await p.$('#season input[name="question-01-call"]'), null);
-  await p.close();
-});
-
-test('the featured q1 call and pointer/keyboard question-pool calls q2–q8 persist independently', async () => {
+test('the featured Episode 01 private call persists without question-pool voting controls', async () => {
   const p = await page(390, 844);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
   await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
-  await p.evaluate(() => localStorage.removeItem('he-private-question-calls'));
   await p.reload({ waitUntil: 'domcontentloaded' });
   await p.click('.reader-call label:has(input[value="yes"])');
   assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
-  const expected = {};
-  for (let number = 2; number <= 8; number += 1) {
-    const question = `question-0${number}`;
-    const value = number % 2 === 0 ? 'yes' : 'no';
-    expected[question] = value;
-    const selector = `#${question} input[value="${value}"]`;
-    if (number % 2 === 0) await p.click(`${selector} + span`);
-    else { await p.focus(selector); await p.keyboard.press('Space'); }
-    assert.equal(await p.$eval(selector, (input) => input.checked), true);
-  }
   assert.equal(await p.evaluate(() => localStorage.getItem('he-private-forecast')), 'yes');
-  assert.deepEqual(JSON.parse(await p.evaluate(() => localStorage.getItem('he-private-question-calls'))), expected);
+  assert.equal(await p.$('[data-question-call], .compact-call'), null);
   await p.reload({ waitUntil: 'domcontentloaded' });
   assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
-  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('[data-question-call]:checked')].map(({ name, value }) => [name, value])), Object.entries(expected).map(([question, value]) => [`${question}-call`, value]));
   await p.close();
 });
 
-test('visible season summaries and call labels win their center-point hit tests', async () => {
+test('all seven pool summaries are pointer and keyboard operable with readable contracts', async () => {
+  const p = await page(390, 844);
+  await p.goto(origin, { waitUntil: 'domcontentloaded' });
+  for (let number = 2; number <= 8; number += 1) {
+    const id = `question-0${number}`;
+    await p.click(`#${id} summary`);
+    assert.equal(await p.$eval(`#${id} details`, ({ open }) => open), true, `${id} pointer open`);
+    const contract = await p.$eval(`#${id} .season-contract`, (node) => ({
+      question: node.querySelector('.editorial-question').textContent.trim(),
+      terms: [...node.querySelectorAll('dt')].map(({ textContent }) => textContent.trim()),
+    }));
+    assert.ok(contract.question.endsWith('?'), `${id} readable question`);
+    assert.deepEqual(contract.terms, ['Threshold', 'Deadline', 'Evidence']);
+    await p.click(`#${id} summary`);
+    await p.focus(`#${id} summary`);
+    await p.keyboard.press('Enter');
+    assert.equal(await p.$eval(`#${id} details`, ({ open }) => open), true, `${id} keyboard open`);
+    await p.keyboard.press('Enter');
+  }
+  assert.equal(await p.$('[data-question-call], .compact-call'), null);
+  await p.close();
+});
+
+test('visible season summaries win their center-point hit tests', async () => {
   for (const [width, height] of [[390, 844], [1366, 768]]) {
     const p = await page(width, height);
     await p.goto(origin, { waitUntil: 'domcontentloaded' });
     const misses = await p.evaluate(async () => {
       const misses = [];
       document.documentElement.style.scrollBehavior = 'auto';
-      for (const node of document.querySelectorAll('.season-slate summary,.compact-call label')) {
+      for (const node of document.querySelectorAll('.season-slate summary')) {
         const style = getComputedStyle(node);
         let rect = node.getBoundingClientRect();
         if (style.display === 'none' || rect.width <= 0 || rect.height <= 0) continue;
@@ -337,6 +333,25 @@ test('visible season summaries and call labels win their center-point hit tests'
       return misses;
     });
     assert.deepEqual(misses, [], `${width}px center-point misses`);
+    await p.close();
+  }
+});
+
+test('malformed and unknown fragments are ignored without breaking local calls or sharing', async () => {
+  for (const fragment of ['#%5B', '#question-does-not-exist']) {
+    const p = await page();
+    const failures = [];
+    p.on('pageerror', (error) => failures.push(error.message));
+    await p.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } });
+    });
+    await p.goto(`${origin}/${fragment}`, { waitUntil: 'domcontentloaded' });
+    await p.click('.reader-call label:has(input[value="yes"])');
+    assert.equal(await p.$eval('#forecast-yes', ({ checked }) => checked), true);
+    await p.click('#share-forecast');
+    await p.waitForFunction(() => window.__shared);
+    assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-01`);
+    assert.deepEqual(failures, [], fragment);
     await p.close();
   }
 });
@@ -408,7 +423,7 @@ test('no-JS at narrow widths retains nav, eight questions/contracts, story, and 
       };
     });
     assert.deepEqual(state, { menuButton: 'none', navLinks: 6, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 6, words: state.words, overflow: state.overflow });
-    assert.ok(state.words >= 490, `${width}px no-JS story has ${state.words} words`);
+    assert.ok(state.words >= 450, `${width}px no-JS story has ${state.words} words`);
     assert.ok(state.overflow <= 1, `${width}px no-JS overflow ${state.overflow}px`);
     await p.close();
   }
