@@ -11,12 +11,6 @@ function setMenu(open, returnFocus = false) {
 }
 
 menuButton?.addEventListener('click', () => setMenu(menuButton.getAttribute('aria-expanded') !== 'true'));
-menuButton?.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
-    event.preventDefault();
-    setMenu(false, true);
-  }
-});
 menu?.addEventListener('click', (event) => {
   if (!event.target.closest('a')) return;
   setMenu(false);
@@ -61,7 +55,7 @@ for (const choice of document.querySelectorAll('[data-question-call]')) {
 
 const disclosures = [...document.querySelectorAll('.season-slate details')];
 function openFragment() {
-  const item = location.hash && document.querySelector(location.hash);
+  const item = location.hash ? document.querySelector(location.hash) : null;
   const disclosure = item?.querySelector('details');
   if (disclosure) disclosure.open = true;
 }
@@ -77,7 +71,8 @@ openFragment();
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (menuButton?.getAttribute('aria-expanded') === 'true') { setMenu(false, true); return; }
-    const opened = disclosures.find(({ open }) => open);
+    const focusedDisclosure = document.activeElement?.closest?.('details');
+    const opened = focusedDisclosure?.open ? focusedDisclosure : disclosures.findLast(({ open }) => open);
     if (opened) {
       opened.open = false;
       opened.querySelector('summary')?.focus();
