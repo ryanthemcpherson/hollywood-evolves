@@ -52,12 +52,16 @@ function openFragment() {
   const disclosure = item?.matches('.season-slate > li[id]') ? item.querySelector('details') : null;
   if (disclosure) disclosure.open = true;
 }
-disclosures.forEach((details) => details.addEventListener('toggle', () => {
-  if (!details.open) return;
+disclosures.forEach((details) => {
   const item = details.closest('li[id]');
-  if (item && location.hash !== `#${item.id}`) history.replaceState(history.state, '', `#${item.id}`);
-  document.querySelector('#share-forecast')?.setAttribute('data-share-url', canonicalShareUrl());
-}));
+  details.querySelector('summary')?.addEventListener('click', () => {
+    if (item && location.hash !== `#${item.id}`) history.replaceState(history.state, '', `#${item.id}`);
+  });
+  details.addEventListener('toggle', () => {
+    if (!details.open) return;
+    document.querySelector('#share-forecast')?.setAttribute('data-share-url', canonicalShareUrl());
+  });
+});
 window.addEventListener('hashchange', openFragment);
 openFragment();
 

@@ -331,24 +331,15 @@ test('authenticated commentary stays pending until a configured editor approves 
   assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
 });
 
-test('demo-state endpoint is hidden when demo mode is off', async (t) => {
-  const { port } = await startServer(t);
+test('public runtime retires the demo route even when stale deployment variables remain', async (t) => {
+  const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: 'postgres://127.0.0.1:1/none' });
   const response = await get(port, '/api/demo-state');
   assert.equal(response.status, 404);
   const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
   assert.equal(mutation.status, 404);
   const ready = await get(port, '/readyz');
   assert.equal(ready.status, 200);
-  assert.equal(JSON.parse(ready.body).demoMode, false);
-});
-
-test('demo mode with an unreachable database fails closed', async (t) => {
-  const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: 'postgres://127.0.0.1:1/none' });
-  const demo = await get(port, '/api/demo-state');
-  assert.equal(demo.status, 503);
-  assert.equal(JSON.parse(demo.body).demo, true);
-  const ready = await get(port, '/readyz');
-  assert.equal(ready.status, 503);
+  assert.deepEqual(JSON.parse(ready.body), { status: 'ready' });
   const health = await get(port, '/healthz');
   assert.equal(health.status, 200);
 });

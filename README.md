@@ -28,7 +28,7 @@ The historical product brief proposes that each episode explain a prior industry
 
 ## Public website
 
-This repository serves the standalone editorial site at `hollywoodevolves.mcpherson.app`. It contains no real submitted audience data or forecast values presented as real; illustrative values can appear only in explicitly labeled, fail-closed demo mode. Search indexing remains disabled until Episode 01's evidence-source contract, sitemap, and discovery behavior are approved together.
+This repository serves the standalone editorial site at `hollywoodevolves.mcpherson.app`. It publishes no submitted audience data, illustrative percentages, or forecast values. Search indexing remains disabled until Episode 01's evidence-source contract, sitemap, and discovery behavior are approved together.
 
 ### Local development
 
