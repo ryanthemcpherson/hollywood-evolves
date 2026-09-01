@@ -9,6 +9,7 @@ test('homepage contains no unavailable states, fake values, or platform promises
   const [html, js] = await Promise.all([read('index.html'), read('src/main.js')]);
   assert.doesNotMatch(`${html}\n${js}`, prohibited);
   assert.doesNotMatch(html, /data-demo|class="ledger"|hero-dock|demo-banner/);
+  assert.doesNotMatch(html, /\bpartnership with\b|\bin partnership\b/i);
 });
 
 test('editorial narrative is singular, subject-first, and chaptered', async () => {
@@ -37,6 +38,8 @@ test('mobile contract is concise and every authored target is at least 44px', as
   assert.match(css, /--target:\s*44px/);
   assert.match(css, /@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /@keyframes|animation\s*:/);
+  assert.match(css, /\.season-slate summary::after\s*\{[^}]*content:\s*"\+"/);
+  assert.match(css, /\.season-slate details\[open\]>summary::after\s*\{[^}]*content:\s*"−"/);
 });
 
 test('choice, canonical share, native details, and keyboard code remain', async () => {
