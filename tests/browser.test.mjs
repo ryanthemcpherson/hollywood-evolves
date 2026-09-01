@@ -13,6 +13,7 @@ const HERO_GEOMETRY_VIEWPORTS = [
   { width: 390, height: 844, maxPageHeight: 5660, layout: 'stacked' },
   { width: 1366, height: 768, maxPageHeight: 4411, layout: 'side-by-side' },
 ];
+const READABILITY_FLOOR_VIEWPORTS = [[320, 844], [390, 844], [1366, 768], [1440, 900]];
 const CANONICAL = 'https://hollywoodevolves.mcpherson.app/';
 let browser;
 let child;
@@ -105,10 +106,72 @@ test('subject-first cover has one clear action and no host portrait', async () =
     bottom: Math.round(hero.getBoundingClientRect().bottom),
   }));
   assert.match(cover.heading, /Technology.*Hollywood/);
-  assert.deepEqual(cover.actions, ['Read the first question ↓']);
+  assert.deepEqual(cover.actions, ['Read the Episode 01 question ↓']);
   assert.equal(cover.portraits, 0);
   assert.ok(cover.bottom <= 840, JSON.stringify(cover));
   await p.close();
+});
+
+test('hero composition gives the thesis visual command of the cover', async () => {
+  for (const [width, height] of [[1366, 768], [1440, 900]]) {
+    const p = await page(width, height);
+    await p.goto(origin, { waitUntil: 'networkidle0' });
+    const state = await p.evaluate(() => {
+      const stage = document.querySelector('.control-map__flow');
+      const label = stage?.querySelector('dt');
+      const item = stage?.querySelector('.control-map__stages li');
+      const caption = document.querySelector('.control-map figcaption');
+      return {
+        stage: stage?.getBoundingClientRect().toJSON(),
+        labelSize: label ? Number.parseFloat(getComputedStyle(label).fontSize) : 0,
+        itemSize: item ? Number.parseFloat(getComputedStyle(item).fontSize) : 0,
+        caption: caption?.getBoundingClientRect().toJSON(),
+        captionSize: caption ? Number.parseFloat(getComputedStyle(caption).fontSize) : 0,
+        deckSize: Number.parseFloat(getComputedStyle(document.querySelector('.deck')).fontSize),
+        heroTop: document.querySelector('.hero').getBoundingClientRect().top + scrollY,
+      };
+    });
+    const label = `${width}x${height}`;
+    assert.ok(state.stage.height >= 200, `${label}: first flow ${state.stage.height}px tall`);
+    assert.ok(state.itemSize >= 19, `${label}: stage names ${state.itemSize}px`);
+    assert.ok(state.labelSize >= 12, `${label}: Then/Now label ${state.labelSize}px`);
+    assert.ok(state.captionSize >= 20, `${label}: thesis caption ${state.captionSize}px`);
+    assert.ok(state.deckSize >= 18, `${label}: deck ${state.deckSize}px`);
+    await p.close();
+  }
+});
+
+test('all visible authored labels meet an 11px readability floor across release viewports', async () => {
+  for (const [width, height] of READABILITY_FLOOR_VIEWPORTS) {
+    const p = await page(width, height);
+    await p.goto(origin, { waitUntil: 'networkidle0' });
+    const tiny = await p.evaluate(() => {
+      const offscreen = (node) => {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const box = range.getBoundingClientRect();
+        return box.width === 0 || box.height === 0;
+      };
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const seen = new Set();
+      const tiny = [];
+      let current;
+      while ((current = walker.nextNode())) {
+        const text = current.textContent.trim();
+        if (!text || seen.has(current.parentElement)) continue;
+        const parent = current.parentElement;
+        seen.add(parent);
+        if (offscreen(parent)) continue;
+        const style = getComputedStyle(parent);
+        if (style.display === 'none' || style.visibility === 'hidden') continue;
+        const size = Number.parseFloat(style.fontSize);
+        if (size < 11) tiny.push({ text: text.slice(0, 40), size });
+      }
+      return tiny;
+    });
+    assert.deepEqual(tiny, [], `${width}x${height}: sub-11px labels ${JSON.stringify(tiny)}`);
+    await p.close();
+  }
 });
 
 test('control map keeps the hero balanced within existing page-height budgets', async () => {
@@ -139,6 +202,7 @@ test('control map keeps the hero balanced within existing page-height budgets', 
         smallTargets: targets.filter(({ width: targetWidth, height: targetHeight }) => targetWidth < 43.5 || targetHeight < 43.5),
         copy: copy.toJSON(),
         map: mapRect?.toJSON() || null,
+        flows: [...hero.querySelectorAll('.control-map__flow')].map((flow) => flow.getBoundingClientRect().toJSON()),
       };
     });
     const label = `${width}x${height}`;
@@ -147,12 +211,19 @@ test('control map keeps the hero balanced within existing page-height budgets', 
     assert.ok(state.pageHeight <= maxPageHeight, `${label}: page height ${state.pageHeight}px > ${maxPageHeight}px`);
     assert.ok(state.overflow <= 1, `${label}: overflow ${state.overflow}px`);
     assert.deepEqual(state.smallTargets, [], `${label}: authored targets`);
-    assert.ok(state.map.height >= 220 && state.map.height <= 360, `${label}: control-map height ${state.map.height}px`);
+    if (layout === 'side-by-side') {
+      assert.ok(state.map.height >= 380 && state.map.height <= 560, `${label}: control-map height ${state.map.height}px`);
+      assert.ok(state.flows.length === 2 && state.flows.every((flow) => flow.height >= 200), `${label}: flows ${JSON.stringify(state.flows.map((flow) => flow.height))}`);
+    } else {
+      assert.ok(state.map.height >= 220 && state.map.height <= 360, `${label}: control-map height ${state.map.height}px`);
+    }
     if (layout === 'stacked') {
       assert.ok(state.map.top - state.copy.bottom >= 24, `${label}: stacked gap`);
       assert.ok(Math.abs(state.map.left - state.copy.left) <= 1 && Math.abs(state.map.width - state.copy.width) <= 1, `${label}: stacked alignment`);
     } else {
       assert.ok(state.map.left - state.copy.right >= 24, `${label}: column gap`);
+      assert.ok(state.map.width >= 519, `${label}: control-map width ${state.map.width}px`);
+      assert.ok(state.copy.width >= 519, `${label}: hero-copy width ${state.copy.width}px`);
       const centerDelta = (state.map.top + state.map.height / 2) - (state.copy.top + state.copy.height / 2);
       assert.ok(Math.abs(centerDelta) <= 48, `${label}: vertical center delta ${centerDelta}px`);
     }
