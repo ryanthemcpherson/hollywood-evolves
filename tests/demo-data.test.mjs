@@ -49,11 +49,64 @@ test('repository builds a transactionally consistent read-only public payload fr
   assert.match(payload.label, /^DEMO/);
   assert.equal(payload.questions.length, 8);
   assert.equal(payload.headline.outcome.state, 'unresolved');
-  assert.deepEqual(payload.platforms.map(({ name }) => name), ['Spotify', 'Apple Podcasts', 'YouTube']);
+  assert.deepEqual(payload.platforms.map(({ name }) => name), ['Spotify', 'Apple Music', 'YouTube']);
   assert.ok(payload.platforms.every(({ state, url }) => state === 'pending' && url === null));
   assert.doesNotMatch(JSON.stringify(payload), /comment|session|contributor/i);
   assert.equal(calls[0], 'BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY');
   assert.deepEqual(calls.slice(-2), ['COMMIT', 'RELEASE']);
+});
+
+test('readiness rejects a metadata-valid but incomplete demo dataset', async () => {
+  const calls = [];
+  const client = {
+    async query(sql) {
+      calls.push(sql);
+      if (sql.includes('.metadata')) return { rows: [{ migration_version: 1, seed_version: 1, as_of: '2026-08-30T12:00:00.000Z' }] };
+      if (sql.includes('.questions')) return { rows: demoQuestions.slice(1).map((q) => ({ id: q.id, display_id: q.displayId, title: q.title, yes_percent: q.yes, no_percent: q.no, status: q.status, threshold: q.threshold, deadline: q.deadline })) };
+      if (sql.includes('.views')) return { rows: demoViews.map((v) => ({ label: v.label, yes_percent: v.yes, no_percent: v.no, status: v.status })) };
+      if (sql.includes('.evidence')) return { rows: demoEvidence };
+      return { rows: [] };
+    },
+    release() { calls.push('RELEASE'); },
+  };
+  const adapter = {
+    async query() { return { rows: [{ migration_version: 1, seed_version: 1 }] }; },
+    async connect() { return client; },
+  };
+  const repository = new DemoDataRepository({ adapter });
+  repository.available = true;
+
+  assert.equal(await repository.readiness(), false);
+  assert.ok(calls.some((sql) => sql.includes?.('.questions')));
+  assert.deepEqual(calls.slice(-2), ['COMMIT', 'RELEASE']);
+});
+
+test('public state and readiness reject count-complete rows with unexpected seed identities', async () => {
+  const questionRows = demoQuestions.map((q, index) => ({
+    id: index === 0 ? 'unexpected-question-id' : q.id,
+    display_id: q.displayId,
+    title: q.title,
+    yes_percent: q.yes,
+    no_percent: q.no,
+    status: q.status,
+    threshold: q.threshold,
+    deadline: q.deadline,
+  }));
+  const client = {
+    async query(sql) {
+      if (sql.includes('.metadata')) return { rows: [{ migration_version: 1, seed_version: 1, as_of: '2026-08-30T12:00:00.000Z' }] };
+      if (sql.includes('.questions')) return { rows: questionRows };
+      if (sql.includes('.views')) return { rows: demoViews.map((v) => ({ label: v.label, yes_percent: v.yes, no_percent: v.no, status: v.status })) };
+      if (sql.includes('.evidence')) return { rows: demoEvidence };
+      return { rows: [] };
+    },
+    release() {},
+  };
+  const repository = new DemoDataRepository({ adapter: { async connect() { return client; } } });
+  repository.available = true;
+
+  await assert.rejects(repository.getPublicState(), (error) => error.statusCode === 503);
+  assert.equal(await repository.readiness(), false);
 });
 
 test('failed initialization rolls back and readiness fails closed', async () => {

@@ -8,6 +8,8 @@ import { CommentaryStore } from './lib/commentary-store.mjs';
 import { audienceCampaigns, forecastQuestions } from './lib/forecast-questions.mjs';
 import { readJson } from './lib/http-body.mjs';
 import { LinkedInOidcClient } from './lib/linkedin-oidc.mjs';
+import pg from 'pg';
+import { DEMO_LABEL, DemoDataRepository } from './lib/demo-data-repository.mjs';
 
 
 const port = Number(process.env.PORT || 3000);
@@ -19,6 +21,14 @@ const commentaryPath = process.env.COMMENTARY_DATA_PATH || join(process.cwd(), '
 const commentarySecret = process.env.COMMENTARY_SECRET || randomBytes(32).toString('base64url');
 const publicOrigin = (process.env.PUBLIC_ORIGIN || 'https://hollywoodevolves.mcpherson.app').replace(/\/$/, '');
 const commentaryEnabled = process.env.COMMENTARY_ENABLED === 'true';
+const demoMode = process.env.DEMO_MODE === 'true';
+const demoPool = demoMode && process.env.DATABASE_URL ? new pg.Pool({
+  connectionString: process.env.DATABASE_URL, max: 5, idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 800, statement_timeout: 5_000,
+  application_name: 'hollywood-evolves-demo',
+}) : null;
+demoPool?.on('error', () => console.error('Demo-data database connection became unavailable.'));
+const demoRepository = demoPool ? new DemoDataRepository({ adapter: demoPool }) : null;
 
 function validCommentaryConfig() {
   if (!(process.env.LINKEDIN_CLIENT_ID
@@ -195,6 +205,15 @@ async function handleApi(req, res, url) {
   const commentsMatch = url.pathname.match(/^\/api\/questions\/([a-z0-9-]+)\/comments$/);
   const moderationMatch = url.pathname.match(/^\/api\/admin\/comments\/([A-Za-z0-9_-]+)$/);
   try {
+    if (url.pathname === '/api/demo-state') {
+      if (!demoMode) return json(res, 404, { error: 'API route not found' });
+      if (!['GET', 'HEAD'].includes(req.method)) return json(res, 405, { error: 'Method Not Allowed' }, { Allow: 'GET, HEAD' });
+      if (!demoRepository) return json(res, 503, { demo: true, label: DEMO_LABEL, error: 'Demo data unavailable' });
+      try {
+        const payload = await demoRepository.getPublicState();
+        return json(res, 200, req.method === 'HEAD' ? {} : payload);
+      } catch { return json(res, 503, { demo: true, label: DEMO_LABEL, error: 'Demo data unavailable' }); }
+    }
 
     if (!authConfigured && req.method === 'GET' && (url.pathname === '/api/session' || commentsMatch)) {
       return json(res, 404, { error: 'API route not found' });
@@ -312,7 +331,10 @@ const server = createServer(async (req, res) => {
     return res.end('Method Not Allowed');
   }
   if (url.pathname === '/healthz') { res.writeHead(200, {...headers,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}); return res.end('{"status":"ok"}'); }
-  if (url.pathname === '/readyz') return json(res, 200, { status: 'ready' });
+  if (url.pathname === '/readyz') {
+    const ready = !demoMode || (Boolean(demoRepository) && await demoRepository.readiness());
+    return json(res, ready ? 200 : 503, { status: ready ? 'ready' : 'unavailable', ...(demoMode ? { demoMode: true } : {}) });
+  }
   if (decodedPathname === '/poll.html') {
     res.writeHead(404, { ...headers, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     if (req.method === 'HEAD') return res.end();
@@ -340,13 +362,20 @@ const server = createServer(async (req, res) => {
   createReadStream(file).pipe(res);
 });
 
+if (demoRepository) {
+  try { await demoRepository.initialize(); }
+  catch { console.error('Demo-data database initialization failed.'); }
+}
 server.listen(port, host, () => console.log(`Hollywood Evolves listening on ${host}:${port}`));
 
 let closing = false;
 async function shutdown() {
   if (closing) return;
   closing = true;
-  server.close(() => process.exit(0));
+  server.close(async () => {
+    await demoRepository?.close().catch(() => {});
+    process.exit(0);
+  });
   setTimeout(() => process.exit(1), 10_000).unref();
 }
 process.once('SIGTERM', shutdown);
