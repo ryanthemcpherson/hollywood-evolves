@@ -4,6 +4,7 @@ import { AudienceSignalStore, generateLinkedInPostCopy, parseLinkedInReactionCsv
 import { audienceCampaigns, forecastQuestions } from '../lib/forecast-questions.mjs';
 import { LinkedInReactionImportAdapter } from '../lib/linkedin-reaction-adapter.mjs';
 
+const OPEN_NOW = () => '2026-08-30T12:00:00.000Z';
 const openQuestion = {
   id: 'he-test-question-v1',
   prompt: 'Will the test resolve YES?',
@@ -46,7 +47,7 @@ test('Episode 01 has an immutable draft ID and cannot publish audience values ye
 });
 
 test('records a direct forecast and exposes only aggregate source-separated results', async () => {
-  const store = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret' });
+  const store = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', now: OPEN_NOW });
   const result = await store.recordDirectResponse({
     questionId: openQuestion.id,
     choice: 'yes',
@@ -97,7 +98,7 @@ test('enforces one direct response per browser and idempotent retries', async ()
 
 test('rejects invalid, closed, and malformed direct responses', async () => {
   const closedQuestion = { ...openQuestion, id: 'he-closed-v1', state: 'draft' };
-  const store = new AudienceSignalStore({ questions: [openQuestion, closedQuestion], secret: 'test-secret' });
+  const store = new AudienceSignalStore({ questions: [openQuestion, closedQuestion], secret: 'test-secret', now: OPEN_NOW });
   const valid = {
     questionId: openQuestion.id,
     choice: 'yes',
@@ -187,7 +188,7 @@ test('generates clear LinkedIn reaction poll copy with mapping and cutoff', () =
 });
 
 test('round-trips aggregate inputs and audit records for durable storage', async () => {
-  const first = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret' });
+  const first = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', now: OPEN_NOW });
   const response = {
     questionId: openQuestion.id,
     choice: 'no',
@@ -197,7 +198,7 @@ test('round-trips aggregate inputs and audit records for durable storage', async
     source: 'site',
   };
   await first.recordDirectResponse(response);
-  const restored = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', initialState: first.snapshot() });
+  const restored = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', initialState: first.snapshot(), now: OPEN_NOW });
 
   assert.equal(restored.publicResults(openQuestion.id).directForecasts.no, 1);
   assert.deepEqual(await restored.recordDirectResponse(response), { accepted: false, duplicate: true });
