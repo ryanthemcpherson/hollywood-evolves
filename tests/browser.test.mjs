@@ -249,6 +249,26 @@ test('forced colors preserves meaningful Episode 01 selection and disclosure foc
   await p.close();
 });
 
+test('pool navigation lands on the overview without opening or selecting a question', async () => {
+  const p = await page(390, 844);
+  await p.goto(origin, { waitUntil: 'domcontentloaded' });
+  await p.click('.menu-button');
+  await p.click('.nav-links a[href="#season"]');
+  await p.waitForFunction(() => document.querySelector('#season').getBoundingClientRect().top < 90);
+  const state = await p.evaluate(() => ({
+    hash: location.hash,
+    focused: document.activeElement.id,
+    openQuestions: [...document.querySelectorAll('.season-slate details')].filter(({ open }) => open).length,
+  }));
+  assert.deepEqual(state, { hash: '#season', focused: 'season', openQuestions: 0 });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  assert.deepEqual(await p.evaluate(() => ({
+    hash: location.hash,
+    openQuestions: [...document.querySelectorAll('.season-slate details')].filter(({ open }) => open).length,
+  })), { hash: '#season', openQuestions: 0 });
+  await p.close();
+});
+
 test('skip link, mobile menu, and native disclosures preserve keyboard focus', async () => {
   const p = await page(390, 844);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
