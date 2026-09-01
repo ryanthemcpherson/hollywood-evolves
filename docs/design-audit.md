@@ -37,6 +37,3 @@ Season One keeps all eight approved draft questions as an early question pool. I
 ## Remaining manual review
 
 Automated testing cannot certify aesthetic quality or WCAG conformance. Manual review should still cover real-font loading, 200% zoom, native disclosure behavior, screen-reader order, and optical balance on physical 1366×768 and 1440×900 displays.
-# 2026-09-01 episode-cut recomposition
-
-The supply-chain thumbnail, competing forecast columns, identical season rows, split Past/Present essays, and administrative method list were removed. The current composition uses a semantic three-act instrument, one decision ledger, a hierarchical question atlas, one portrait scene, and a four-stage protocol rail. See `docs/LIVE_ROAST_REBUILD.md` for test evidence and geometry.
