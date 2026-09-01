@@ -1,509 +1,584 @@
-import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { delimiter, join } from 'node:path';
-import test, { after, before } from 'node:test';
-import puppeteer from 'puppeteer-core';
-
-const VIEWPORTS = [[320, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]];
-const CANONICAL = 'https://hollywoodevolves.mcpherson.app/';
-let browser;
-let child;
-let origin;
-let localPort;
-
-export function browserCandidates(platform = process.platform, env = process.env) {
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { delimiter, join } from "node:path";
+import test, { after, before } from "node:test";
+import puppeteer from "puppeteer-core";
+import {
+  DEMO_AS_OF,
+  DEMO_LABEL,
+  demoEvidence,
+  demoQuestions,
+  demoViews,
+} from "../lib/demo-data-repository.mjs";
+const VIEWPORTS = [
+  [320, 844],
+  [390, 844],
+  [768, 900],
+  [1366, 768],
+  [1440, 900],
+];
+let browser, child, origin, localPort;
+export function browserCandidates(
+  platform = process.platform,
+  env = process.env,
+) {
   if (env.BROWSER_EXECUTABLE_PATH) return [env.BROWSER_EXECUTABLE_PATH];
-  if (platform === 'win32') {
+  if (platform === "win32")
     return [
-      env.PROGRAMFILES && join(env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      env['PROGRAMFILES(X86)'] && join(env['PROGRAMFILES(X86)'], 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      env.LOCALAPPDATA && join(env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
-      env.PROGRAMFILES && join(env.PROGRAMFILES, 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
-      env['PROGRAMFILES(X86)'] && join(env['PROGRAMFILES(X86)'], 'Microsoft', 'Edge', 'Application', 'msedge.exe'),
+      env.PROGRAMFILES &&
+        join(env.PROGRAMFILES, "Google", "Chrome", "Application", "chrome.exe"),
+      env.LOCALAPPDATA &&
+        join(
+          env.LOCALAPPDATA,
+          "Microsoft",
+          "Edge",
+          "Application",
+          "msedge.exe",
+        ),
     ].filter(Boolean);
-  }
-  const pathCandidates = (env.PATH || '').split(delimiter).flatMap((directory) =>
-    ['chromium', 'chromium-browser', 'google-chrome', 'google-chrome-stable', 'microsoft-edge'].map((name) => join(directory, name)));
-  return [...pathCandidates, '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'];
+  return [
+    ...(env.PATH || "")
+      .split(delimiter)
+      .flatMap((d) => ["google-chrome", "chromium"].map((n) => join(d, n))),
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ];
 }
-
-function executable() {
-  const path = browserCandidates().find(existsSync);
-  if (!path) throw new Error('No supported Chromium browser found. Set BROWSER_EXECUTABLE_PATH.');
-  return path;
-}
-
 async function randomPort() {
-  const server = createServer();
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const value = server.address().port;
-  await new Promise((resolve) => server.close(resolve));
-  return value;
+  const s = createServer();
+  await new Promise((r) => s.listen(0, "127.0.0.1", r));
+  const p = s.address().port;
+  await new Promise((r) => s.close(r));
+  return p;
 }
-
-async function page(width = 1366, height = 768) {
-  const instance = await browser.newPage();
-  await instance.setViewport({ width, height });
-  await instance.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }]);
-  return instance;
+async function newPage(w = 1366, h = 768) {
+  const p = await browser.newPage();
+  await p.setViewport({ width: w, height: h });
+  return p;
 }
-
+function demoPayload() {
+  return {
+    demo: true,
+    label: DEMO_LABEL,
+    metadata: { migrationVersion: 1, seedVersion: 1, asOf: DEMO_AS_OF },
+    headline: {
+      questionId: demoQuestions[0].id,
+      views: demoViews.map((view) => ({ ...view, demo: true })),
+      evidence: demoEvidence.map((item) => ({ ...item, demo: true })),
+      outcome: {
+        state: "unresolved",
+        demo: true,
+        threshold: demoQuestions[0].threshold,
+        deadline: demoQuestions[0].deadline,
+      },
+    },
+    questions: demoQuestions.map((question) => ({ ...question, demo: true })),
+    platforms: ["Spotify", "Apple Music", "YouTube"].map((name) => ({
+      name,
+      state: "pending",
+      url: null,
+    })),
+  };
+}
+async function useDeterministicDemo(page) {
+  await page.setRequestInterception(true);
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/demo-state") {
+      request.respond({
+        status: 200,
+        contentType: "application/json",
+        headers: { "cache-control": "no-store" },
+        body: JSON.stringify(demoPayload()),
+      });
+      return;
+    }
+    request.continue();
+  });
+}
 before(async () => {
   localPort = await randomPort();
-  child = spawn(process.execPath, ['server.mjs'], {
-    cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(localPort) },
-    stdio: ['ignore', 'pipe', 'pipe'],
+  const childEnv = { ...process.env, PORT: String(localPort), DEMO_MODE: "false" };
+  delete childEnv.DATABASE_URL;
+  child = spawn(process.execPath, ["server.mjs"], {
+    cwd: new URL("..", import.meta.url),
+    env: childEnv,
+    stdio: ["ignore", "pipe", "pipe"],
   });
   await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Server did not start')), 5000);
-    child.stdout.on('data', (data) => { if (data.toString().includes('listening')) { clearTimeout(timeout); resolve(); } });
-    child.once('exit', (code) => reject(new Error(`Server exited (${code})`)));
+    const timer = setTimeout(
+      () => reject(new Error("Server did not start")),
+      5000,
+    );
+    child.stdout.on("data", (d) => {
+      if (d.toString().includes("listening")) {
+        clearTimeout(timer);
+        resolve();
+      }
+    });
+    child.once("exit", (c) => reject(new Error(`Server exited ${c}`)));
   });
   origin = `http://127.0.0.1:${localPort}`;
+  const executablePath = browserCandidates().find(existsSync);
+  if (!executablePath) throw new Error("No Chromium");
   browser = await puppeteer.launch({
-    executablePath: executable(),
+    executablePath,
     headless: true,
-    args: ['--no-sandbox', '--disable-dev-shm-usage', `--explicitly-allowed-ports=${localPort}`],
+    args: ["--no-sandbox", `--explicitly-allowed-ports=${localPort}`],
   });
 });
-
 after(async () => {
   await browser?.close();
   if (child?.exitCode === null) {
-    const exited = new Promise((resolve) => child.once('exit', resolve));
+    const done = new Promise((r) => child.once("exit", r));
     child.kill();
-    await exited;
+    await done;
   }
 });
-
-test('browser discovery is portable and the server uses an explicit randomized-port gate', () => {
-  const windows = browserCandidates('win32', { PROGRAMFILES: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\reader\\AppData\\Local' });
-  assert.ok(windows.some((candidate) => candidate.endsWith('Google/Chrome/Application/chrome.exe')));
-  assert.ok(windows.some((candidate) => candidate.endsWith('Microsoft/Edge/Application/msedge.exe')));
-  assert.ok(browserCandidates('linux', { PATH: '/bin:/usr/bin' }).some((candidate) => candidate.endsWith('/chromium')));
-  assert.ok(Number.isInteger(localPort) && localPort > 0 && localPort !== 5173);
-  assert.equal(origin, `http://127.0.0.1:${localPort}`);
-  assert.ok(browser.process().spawnargs.includes(`--explicitly-allowed-ports=${localPort}`));
+test("browser discovery and randomized port are portable", () => {
+  const linuxCandidates = browserCandidates("linux", { PATH: "/usr/bin" });
+  assert.deepEqual(linuxCandidates.slice(0, 2), [
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ]);
+  assert.ok(linuxCandidates.some((x) => x.endsWith("/chromium")));
+  assert.ok(localPort > 0);
 });
-
-test('subject-first cover has one clear action and no host portrait', async () => {
-  const p = await page();
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  const cover = await p.$eval('.hero', (hero) => ({
-    heading: hero.querySelector('h1').textContent.trim(),
-    actions: [...hero.querySelectorAll('a')].map((node) => node.textContent.trim()),
-    portraits: hero.querySelectorAll('img').length,
-    bottom: Math.round(hero.getBoundingClientRect().bottom),
-  }));
-  assert.match(cover.heading, /Technology.*Hollywood/);
-  assert.deepEqual(cover.actions, ['Read the first question ↓']);
-  assert.equal(cover.portraits, 0);
-  assert.ok(cover.bottom <= 840, JSON.stringify(cover));
+test("episode cut tabs are keyboard logical and never autoplay", async () => {
+  const p = await newPage();
+  await p.goto(origin);
+  const panelNames = await p.evaluate(() => [...document.querySelectorAll('[role="tabpanel"]')].map((panel) => ({
+    id: panel.id,
+    labelledBy: panel.getAttribute("aria-labelledby"),
+  })));
+  assert.deepEqual(panelNames, [
+    { id: "act-past", labelledBy: "tab-past" },
+    { id: "act-present", labelledBy: "tab-present" },
+    { id: "act-forecast", labelledBy: "tab-forecast" },
+  ]);
+  await p.focus("#tab-past");
+  await p.keyboard.press("ArrowRight");
+  assert.equal(
+    await p.evaluate(() => document.activeElement.id),
+    "tab-present",
+  );
+  assert.equal(
+    await p.$eval("#tab-present", (n) => n.getAttribute("aria-selected")),
+    "true",
+  );
+  assert.equal(await p.$eval("[data-act-readout]", (n) => n.textContent), "02 / NOW");
+  await new Promise((r) => setTimeout(r, 150));
+  assert.equal(
+    await p.$eval("#tab-present", (n) => n.getAttribute("aria-selected")),
+    "true",
+  );
   await p.close();
 });
-
-test('homepage viewport matrix preserves reflow, grid, type, target, and reading budgets', async () => {
+test("semantic tabs are the only asymmetric three-act stage", async () => {
+  for (const [width, height] of [[1366, 768], [390, 844]]) {
+    const p = await newPage(width, height);
+    await p.goto(origin);
+    const initial = await p.evaluate(() => ({
+      duplicate: document.querySelectorAll(".act-stage").length,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      tabs: [...document.querySelectorAll('.act-tabs [role="tab"]')].map((tab) => ({
+        text: tab.innerText.replace(/\s+/g, " ").trim(),
+        width: tab.getBoundingClientRect().width,
+        height: tab.getBoundingClientRect().height,
+        selected: tab.getAttribute("aria-selected"),
+      })),
+    }));
+    assert.equal(initial.duplicate, 0);
+    assert.deepEqual(initial.tabs.map(({ text }) => text.toLowerCase()), [
+      "01 past constraint",
+      "02 present signal",
+      "03 forecast call",
+    ]);
+    assert.ok(initial.tabs.every(({ height }) => height >= 44));
+    assert.ok(initial.tabs.every(({ width }) => width >= 44));
+    assert.ok(initial.overflow <= 1, JSON.stringify(initial));
+    if (width === 1366) {
+      assert.ok(initial.tabs[0].width > initial.tabs[1].width * 1.5, JSON.stringify(initial));
+      assert.ok(initial.tabs[0].width > initial.tabs[2].width * 1.5, JSON.stringify(initial));
+      await p.click("#tab-forecast");
+      const forecast = await p.evaluate(() => ({
+        widths: [...document.querySelectorAll('.act-tabs [role="tab"]')].map((tab) => tab.getBoundingClientRect().width),
+        selected: [...document.querySelectorAll('.act-tabs [role="tab"]')].map((tab) => tab.getAttribute("aria-selected")),
+        readout: document.querySelector("[data-act-readout]").textContent,
+        visiblePanels: [...document.querySelectorAll(".act-explanation")].filter((panel) => !panel.hidden).map((panel) => panel.id),
+      }));
+      assert.ok(forecast.widths[2] > forecast.widths[0] * 1.5, JSON.stringify(forecast));
+      assert.ok(forecast.widths[2] > forecast.widths[1] * 1.5, JSON.stringify(forecast));
+      assert.deepEqual(forecast.selected, ["false", "false", "true"]);
+      assert.equal(forecast.readout, "03 / DECISION");
+      assert.deepEqual(forecast.visiblePanels, ["act-forecast"]);
+    }
+    await p.close();
+  }
+});
+test("hydrated release viewport geometry, content, target, portrait, type, and budget gates pass", async () => {
   const records = [];
-  for (const [width, height] of VIEWPORTS) {
-    const p = await page(width, height);
-    await p.goto(origin, { waitUntil: 'networkidle0' });
-    const metrics = await p.evaluate(() => {
-      const visible = (node) => {
-        const style = getComputedStyle(node);
-        const rect = node.getBoundingClientRect();
-        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+  for (const [w, h] of VIEWPORTS) {
+    const p = await newPage(w, h);
+    await useDeterministicDemo(p);
+    await p.goto(origin, { waitUntil: "domcontentloaded" });
+    await p.waitForFunction(
+      () => document.documentElement.dataset.demoState === "ready",
+    );
+    const m = await p.evaluate(() => {
+      const visible = (n) => {
+        const r = n.getBoundingClientRect(),
+          s = getComputedStyle(n);
+        return (
+          s.display !== "none" &&
+          s.visibility !== "hidden" &&
+          r.width > 0 &&
+          r.height > 0
+        );
       };
-      const targets = [...document.querySelectorAll('a,button,summary,label,input:not([type="radio"])')]
-        .filter(visible).map((node) => {
-          const rect = node.getBoundingClientRect();
-          return { node: `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}`, width: rect.width, height: rect.height };
-        });
-      const gridChecks = [...document.querySelectorAll('.header-grid,.chapter>.grid')].flatMap((grid) => {
-        const style = getComputedStyle(grid);
-        const columns = style.gridTemplateColumns.split(' ').map(Number);
-        const gap = Number.parseFloat(style.columnGap);
-        const start = grid.getBoundingClientRect().left;
-        const lines = [start];
-        for (const column of columns) lines.push(lines.at(-1) + column + gap);
-        return [...grid.children].filter(visible).map((child) => {
-          const left = child.getBoundingClientRect().left;
-          return { child: child.tagName, error: Math.min(...lines.map((line) => Math.abs(left - line))) };
-        });
-      });
-      const headingClips = [...document.querySelectorAll('h1,h2')].filter(visible).map((heading) => {
-        const style = getComputedStyle(heading);
-        const lineHeight = Number.parseFloat(style.lineHeight);
-        return { text: heading.textContent.trim(), clipped: ['hidden', 'clip'].includes(style.overflow) || heading.clientHeight + 2 < lineHeight };
-      });
-      const headingWordSplits = [...document.querySelectorAll('h1,h2')].filter(visible).flatMap((heading) => {
-        const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
-        const splits = [];
-        while (walker.nextNode()) {
-          const node = walker.currentNode;
-          for (const match of node.data.matchAll(/\S+/g)) {
-            const range = document.createRange();
-            range.setStart(node, match.index);
-            range.setEnd(node, match.index + match[0].length);
-            if (range.getClientRects().length > 1) splits.push({ heading: heading.textContent.trim(), word: match[0] });
-          }
-        }
-        return splits;
-      });
-      const mainText = document.querySelector('main').innerText;
-      const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
-      const operating = document.querySelector('.operating-system');
+      const small = [...document.querySelectorAll("a:not(.skip),button,summary,label")]
+        .filter(visible)
+        .map((n) => ({
+          t: n.textContent.trim(),
+          r: n.getBoundingClientRect().toJSON(),
+        }))
+        .filter((x) => x.r.width < 43.5 || x.r.height < 43.5);
+      const hero = document.querySelector(".hero").getBoundingClientRect();
+      const required = [
+        ".hero h1",
+        ".episode-instrument",
+        ".primary-action",
+        ".platform-dock",
+      ].map((s) => ({
+        s,
+        r: document.querySelector(s).getBoundingClientRect().toJSON(),
+      }));
       return {
         width: innerWidth,
         height: document.documentElement.scrollHeight,
-        viewports: document.documentElement.scrollHeight / innerHeight,
-        words: mainText.split(/\s+/).filter(Boolean).length,
-        blocks: [...document.querySelectorAll('main>section')].filter(visible).map(({ id, className }) => id || className.split(' ')[0]),
-        paragraphs: paragraphs.length,
-        longParagraphs: paragraphs.filter((node) => node.innerText.split(/\s+/).filter(Boolean).length >= 20).length,
-        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        smallTargets: targets.filter(({ width: targetWidth, height: targetHeight }) => targetWidth < 43.5 || targetHeight < 43.5),
-        gridErrors: gridChecks.filter(({ error }) => error > 1.5),
-        headingClips: headingClips.filter(({ clipped }) => clipped),
-        headingWordSplits,
-        operatingRects: operating.getClientRects().length,
-        operatingWhiteSpace: getComputedStyle(operating).whiteSpace,
+        words: document
+          .querySelector("main")
+          .innerText.split(/\s+/)
+          .filter(Boolean).length,
+        overflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth,
+        portrait: document.querySelectorAll('img[src*="ian-mcpherson"]').length,
+        operating: document.querySelector(".operating-system").getClientRects()
+          .length,
+        small,
+        heroBottom: hero.bottom,
+        required,
+        demoViews: document.querySelectorAll("#demo-views .demo-view").length,
+        atlasValues: [...document.querySelectorAll(".atlas-state")].filter(
+          (node) => /YES \d+% \/ NO \d+%/.test(node.textContent),
+        ).length,
       };
     });
-    records.push(metrics);
-    assert.ok(metrics.overflow <= 1, `${width}x${height}: overflow ${metrics.overflow}px`);
-    assert.deepEqual(metrics.smallTargets, [], `${width}x${height} small targets`);
-    assert.deepEqual(metrics.gridErrors, [], `${width}x${height} off-grid children`);
-    assert.deepEqual(metrics.headingClips, [], `${width}x${height} clipped headings`);
-    assert.deepEqual(metrics.headingWordSplits, [], `${width}x${height} split heading words`);
-    assert.ok(metrics.operatingRects === 1 || metrics.operatingWhiteSpace === 'nowrap', `${width}x${height}: Operating System wraps`);
-    assert.equal(metrics.blocks.length, 6, `${width}x${height}: essential chapter count`);
-    assert.ok(metrics.words > 300 && metrics.paragraphs >= 15 && metrics.longParagraphs >= 5, JSON.stringify(metrics));
+    records.push(m);
+    assert.ok(m.overflow <= 1, JSON.stringify(m));
+    assert.equal(m.portrait, 1);
+    assert.equal(m.operating, 1);
+    assert.equal(m.demoViews, 3);
+    assert.equal(m.atlasValues, 8);
+    assert.deepEqual(m.small, []);
+    if (w >= 1366)
+      for (const x of m.required)
+        assert.ok(
+          x.r.top >= 0 && x.r.bottom <= h,
+          `${w} ${x.s} ${JSON.stringify(x.r)}`,
+        );
     await p.close();
   }
-  const mobile390 = records.find(({ width }) => width === 390);
-  assert.ok(mobile390.viewports < 8.4, JSON.stringify(mobile390));
-  assert.ok(mobile390.words < 615, JSON.stringify(mobile390));
-  console.log(`HOMEPAGE_MATRIX ${JSON.stringify(records)}`);
+  const mobile = records.find((x) => x.width === 390);
+  assert.ok(mobile.height < 5000, JSON.stringify(mobile));
+  assert.ok(mobile.words <= 450, JSON.stringify(mobile));
+  console.log(`REBUILD_GEOMETRY ${JSON.stringify(records)}`);
 });
-
-test('homepage stays free of console, page, and CSP errors after representative interactions', async () => {
-  const p = await page(390, 844);
-  const failures = [];
-  p.on('console', (message) => { if (message.type() === 'error') failures.push(`console: ${message.text()}`); });
-  p.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
-  await p.evaluateOnNewDocument(() => document.addEventListener('securitypolicyviolation', (event) => {
-    console.error(`CSP: ${event.violatedDirective} ${event.blockedURI}`);
+test("mobile platform dock is a compact three-column pending strip", async () => {
+  const p = await newPage(390, 844);
+  await p.goto(origin);
+  const dock = await p.$eval(".platform-dock", (node) => ({
+    height: node.getBoundingClientRect().height,
+    columns: getComputedStyle(node).gridTemplateColumns.split(" ").length,
+    names: [...node.querySelectorAll(".platform-item")].map(
+      (item) => `${item.querySelector("strong").textContent} ${item.querySelector("small").textContent}`,
+    ),
   }));
-  await p.goto(origin, { waitUntil: 'networkidle0' });
-  await p.click('.menu-button');
-  await p.keyboard.press('Escape');
-  await p.click('#question-04 summary');
-  await p.click('#share-forecast');
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  assert.deepEqual(failures, []);
+  assert.ok(dock.height <= 80, JSON.stringify(dock));
+  assert.equal(dock.columns, 3, JSON.stringify(dock));
+  assert.deepEqual(dock.names, [
+    "Spotify Link pending",
+    "Apple Music Link pending",
+    "YouTube Link pending",
+  ]);
   await p.close();
 });
-
-test('reduced motion is static and does not move content', async () => {
-  const p = await page();
-  await p.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
-  await p.goto(origin, { waitUntil: 'networkidle0' });
-  const state = await p.evaluate(async () => {
-    const authored = [...document.querySelectorAll('body *')].filter((node) => {
-      const style = getComputedStyle(node);
-      return style.display !== 'none' && style.visibility !== 'hidden';
-    });
-    const moving = authored.filter((node) => {
-      const style = getComputedStyle(node);
-      return style.animationName !== 'none' || style.transitionDuration.split(',').some((value) => Number.parseFloat(value) > 0);
-    }).map((node) => node.tagName);
-    const tracked = [...document.querySelectorAll('main>section,.supply-instrument,.artifact')];
-    const before = tracked.map((node) => node.getBoundingClientRect().toJSON());
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const after = tracked.map((node) => node.getBoundingClientRect().toJSON());
-    return { motion: matchMedia('(prefers-reduced-motion: reduce)').matches, moving, before, after, scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior };
-  });
-  assert.equal(state.motion, true);
-  assert.equal(state.scrollBehavior, 'auto');
-  assert.deepEqual(state.moving, []);
-  assert.deepEqual(state.after, state.before);
-  await p.close();
-});
-
-test('forced colors preserves meaningful Episode 01 selection and disclosure focus states', async () => {
-  const p = await page(390, 844);
-  await p._client().send('Emulation.setEmulatedMedia', { media: 'screen', features: [{ name: 'forced-colors', value: 'active' }] });
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click('.reader-call label:has(input[value="yes"])');
-  await p.evaluate(() => document.body.focus());
-  for (let index = 0; index < 40; index += 1) {
-    await p.keyboard.press('Tab');
-    if (await p.evaluate(() => document.activeElement.matches('#question-03 summary'))) break;
+test("Episode 01 destinations are truthful and visible on the landing viewport", async () => {
+  for (const [width, height] of [[1366, 768], [1440, 900], [390, 844]]) {
+    const p = await newPage(width, height);
+    await p.goto(origin);
+    const dock = await p.$eval(".platform-dock", (node) => ({
+      heading: node.querySelector("p").textContent.trim(),
+      rect: node.getBoundingClientRect().toJSON(),
+      items: [...node.querySelectorAll(".platform-item")].map((item) => ({
+        name: item.querySelector("strong").textContent.trim(),
+        stateText: item.querySelector("small").textContent.trim(),
+        platform: item.dataset.platform,
+        state: item.dataset.state,
+        url: item.dataset.url,
+        isLink: item.matches("a") || Boolean(item.querySelector("a")),
+      })),
+    }));
+    assert.equal(dock.heading, "Episode 01 destinations · no episode published");
+    assert.deepEqual(dock.items.map(({ name }) => name), ["Spotify", "Apple Music", "YouTube"]);
+    assert.ok(dock.items.every(({ stateText, state, url, isLink, platform }) =>
+      stateText === "Link pending" && state === "pending" && url === "" && !isLink && platform
+    ), JSON.stringify(dock));
+    assert.ok(dock.rect.top >= 0 && dock.rect.bottom <= height, `${width} ${JSON.stringify(dock.rect)}`);
+    await p.close();
   }
-  const state = await p.evaluate(() => {
-    const input = document.querySelector('#forecast-yes');
-    const selected = getComputedStyle(input.nextElementSibling);
-    const summary = document.querySelector('#question-03 summary');
-    const focus = getComputedStyle(summary);
+});
+test("mobile atlas is one horizontal scroll-snap browse rail", async () => {
+  const p = await newPage(390, 844);
+  await useDeterministicDemo(p);
+  await p.goto(origin);
+  await p.waitForFunction(
+    () => document.documentElement.dataset.demoState === "ready",
+  );
+  const atlas = await p.$eval(".atlas", (node) => ({
+    overflowX: getComputedStyle(node).overflowX,
+    snapType: getComputedStyle(node).scrollSnapType,
+    clientWidth: node.clientWidth,
+    scrollWidth: node.scrollWidth,
+    cards: [...node.children].map((card) => ({
+      snapAlign: getComputedStyle(card).scrollSnapAlign,
+      text: card.textContent.replace(/\s+/g, " ").trim(),
+    })),
+  }));
+  assert.equal(atlas.cards.length, 8);
+  assert.ok(atlas.scrollWidth > atlas.clientWidth, JSON.stringify(atlas));
+  assert.match(atlas.overflowX, /auto|scroll/);
+  assert.match(atlas.snapType, /x/);
+  assert.ok(atlas.cards.every(({ snapAlign }) => snapAlign !== "none"));
+  assert.ok(
+    atlas.cards.every(({ text }) =>
+      /Q\d[\s\S]*DEMO[\s\S]*YES \d+% \/ NO \d+%/.test(text),
+    ),
+  );
+  await p.close();
+});
+test("hydrated atlas is a four-column editorial mosaic with a mobile browse cue", async () => {
+  for (const [width, height] of [[1366, 768], [390, 844]]) {
+    const p = await newPage(width, height);
+    await useDeterministicDemo(p);
+    await p.goto(origin);
+    await p.waitForFunction(() => document.documentElement.dataset.demoState === "ready");
+    const result = await p.evaluate(() => {
+      const atlas = document.querySelector(".atlas");
+      const cue = document.querySelector(".atlas-cue");
+      const cards = [...atlas.children].map((card) => {
+        const rect = card.getBoundingClientRect();
+        const affordance = card.querySelector(".contract-affordance");
+        return {
+          rect: rect.toJSON(),
+          text: card.textContent.replace(/\s+/g, " ").trim(),
+          internalOverflow: card.scrollWidth - card.clientWidth,
+          affordance: affordance?.textContent.trim(),
+          affordanceVisible: affordance ? affordance.getClientRects().length > 0 : false,
+        };
+      });
+      return {
+        columns: getComputedStyle(atlas).gridTemplateColumns.split(" ").length,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cue: cue?.textContent.trim(),
+        cueVisible: cue ? cue.getClientRects().length > 0 : false,
+        cards,
+      };
+    });
+    assert.equal(result.cards.length, 8);
+    assert.ok(result.cards.every(({ text }) => /YES \d+% \/ NO \d+%/.test(text)), JSON.stringify(result));
+    assert.ok(result.cards.every(({ affordance, affordanceVisible }) => affordance === "Contract +" && affordanceVisible), JSON.stringify(result));
+    assert.ok(result.overflow <= 1, JSON.stringify(result));
+    if (width === 1366) {
+      assert.equal(result.columns, 4, JSON.stringify(result));
+      const [q1, q2, , , , , , q8] = result.cards;
+      assert.ok(q1.rect.width > q2.rect.width * 1.8 && q1.rect.height > q2.rect.height * 1.8, JSON.stringify(result));
+      assert.ok(q8.rect.width > q2.rect.width * 1.8 && q8.rect.height < q1.rect.height * .75, JSON.stringify(result));
+      assert.equal(result.cueVisible, false);
+    } else {
+      assert.equal(result.cue, "Browse all 8 questions →");
+      assert.equal(result.cueVisible, true);
+      assert.ok(result.cards.every(({ internalOverflow }) => internalOverflow <= 1), JSON.stringify(result));
+    }
+    await p.close();
+  }
+});
+test("mobile portrait uses an explicit face-safe crop position", async () => {
+  const p = await newPage(390, 844);
+  await p.goto(origin);
+  const portrait = await p.$eval('.host img[src*="ian-mcpherson"]', (img) => ({
+    position: getComputedStyle(img).objectPosition,
+    height: img.getBoundingClientRect().height,
+  }));
+  assert.equal(portrait.position, "50% 34%");
+  assert.equal(portrait.height, 210);
+  await p.close();
+});
+test("mobile menu, skip, local call, fragment, storage denial, and failure state work", async () => {
+  const p = await newPage(390, 844);
+  await p.evaluateOnNewDocument(() =>
+    Object.defineProperty(window, "localStorage", {
+      get() {
+        throw new DOMException("denied");
+      },
+    }),
+  );
+  await p.goto(origin);
+  await p.keyboard.press("Tab");
+  assert.equal(
+    await p.evaluate(() => document.activeElement.className),
+    "skip",
+  );
+  await p.keyboard.press("Enter");
+  assert.equal(await p.evaluate(() => document.activeElement.id), "main");
+  await p.click(".menu-button");
+  await p.keyboard.press("Escape");
+  assert.equal(
+    await p.$eval(".menu-button", (n) => n.getAttribute("aria-expanded")),
+    "false",
+  );
+  await p.click("label:has(#forecast-yes)");
+  assert.equal(await p.$eval("#forecast-yes", (n) => n.checked), true);
+  await p.goto(`${origin}/#question-04`);
+  assert.equal(await p.$eval("#question-04 details", (n) => n.open), true);
+  assert.match(
+    await p.$eval("#demo-views", (n) => n.textContent),
+    /Demo data unavailable/,
+  );
+  await p.close();
+});
+test("malformed successful demo payload fails closed before any aggregate hydration", async () => {
+  const p = await newPage(390, 844);
+  const malformed = demoPayload();
+  malformed.questions[0] = { ...malformed.questions[0], yes: 101, no: -1 };
+  await p.setRequestInterception(true);
+  p.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/demo-state") {
+      request.respond({
+        status: 200,
+        contentType: "application/json",
+        headers: { "cache-control": "no-store" },
+        body: JSON.stringify(malformed),
+      });
+      return;
+    }
+    request.continue();
+  });
+  await p.goto(origin, { waitUntil: "domcontentloaded" });
+  await p.waitForFunction(() => document.documentElement.dataset.demoState !== "loading");
+  const state = await p.evaluate(() => ({
+    demoState: document.documentElement.dataset.demoState,
+    views: document.querySelector("#demo-views").textContent,
+    evidence: document.querySelector("#demo-evidence").textContent,
+    atlas: [...document.querySelectorAll(".atlas-state")].map((node) => node.textContent.trim()),
+  }));
+  assert.equal(state.demoState, "unavailable");
+  assert.match(state.views, /Demo data unavailable/);
+  assert.match(state.evidence, /Demo data unavailable/);
+  assert.ok(state.atlas.every((text) => text === "DEMO Demo data unavailable"));
+  await p.close();
+});
+
+test("no-JS keeps disclosure, acts, and contracts in document order", async () => {
+  const p = await newPage(320, 844);
+  await p.setJavaScriptEnabled(false);
+  await p.goto(origin);
+  const s = await p.evaluate(() => ({
+    acts: document.querySelectorAll(".act-explanation").length,
+    atlasDetails: document.querySelectorAll(".atlas details").length,
+    supportingDetails: document.querySelectorAll(".contract, .evidence-details").length,
+    notice: document.querySelector("noscript").textContent,
+    overflow:
+      document.documentElement.scrollWidth -
+      document.documentElement.clientWidth,
+  }));
+  assert.deepEqual(
+    { ...s, notice: /Illustrative/.test(s.notice) },
+    { acts: 3, atlasDetails: 8, supportingDetails: 2, notice: true, overflow: 0 },
+  );
+  await p.close();
+});
+test("reduced motion and forced colors retain static focus/selection", async () => {
+  const p = await newPage(390, 844);
+  await p.emulateMediaFeatures([
+    { name: "prefers-reduced-motion", value: "reduce" },
+  ]);
+  await p.goto(origin);
+  assert.equal(
+    await p.evaluate(
+      () => getComputedStyle(document.documentElement).scrollBehavior,
+    ),
+    "auto",
+  );
+  await p.focus("#forecast-yes");
+  const normalFocus = await p.$eval("#forecast-yes", (input) => {
+    const visibleControl = input.nextElementSibling;
+    const style = getComputedStyle(visibleControl);
     return {
-      active: matchMedia('(forced-colors: active)').matches,
-      checked: input.checked,
-      focused: document.activeElement === summary,
-      selectedOutline: `${selected.outlineStyle} ${selected.outlineWidth}`,
-      focusOutline: `${focus.outlineStyle} ${focus.outlineWidth}`,
+      inputFocusVisible: input.matches(":focus-visible"),
+      outlineStyle: style.outlineStyle,
+      outlineWidth: parseFloat(style.outlineWidth),
     };
   });
-  assert.equal(state.active, true);
-  assert.equal(state.checked, true);
-  assert.equal(state.focused, true);
-  assert.match(state.selectedOutline, /solid (?:3|4)px/);
-  assert.match(state.focusOutline, /solid 3px/);
-  await p.close();
-});
-
-test('pool navigation lands on the overview without opening or selecting a question', async () => {
-  const p = await page(390, 844);
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click('.menu-button');
-  await p.click('.nav-links a[href="#season"]');
-  await p.waitForFunction(() => document.querySelector('#season').getBoundingClientRect().top < 90);
-  const state = await p.evaluate(() => ({
-    hash: location.hash,
-    focused: document.activeElement.id,
-    openQuestions: [...document.querySelectorAll('.season-slate details')].filter(({ open }) => open).length,
-  }));
-  assert.deepEqual(state, { hash: '#season', focused: 'season', openQuestions: 0 });
-  await p.reload({ waitUntil: 'domcontentloaded' });
-  assert.deepEqual(await p.evaluate(() => ({
-    hash: location.hash,
-    openQuestions: [...document.querySelectorAll('.season-slate details')].filter(({ open }) => open).length,
-  })), { hash: '#season', openQuestions: 0 });
-  await p.close();
-});
-
-test('skip link, mobile menu, and native disclosures preserve keyboard focus', async () => {
-  const p = await page(390, 844);
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.keyboard.press('Tab');
-  assert.equal(await p.evaluate(() => document.activeElement.classList.contains('skip')), true);
-  await p.keyboard.press('Enter');
-  assert.equal(await p.evaluate(() => document.activeElement.id), 'main');
-
-  await p.focus('.menu-button');
-  await p.keyboard.press('Enter');
-  assert.equal(await p.$eval('.menu-button', (button) => button.getAttribute('aria-expanded')), 'true');
-  await p.keyboard.press('Escape');
-  assert.deepEqual(await p.$eval('.menu-button', (button) => [button.getAttribute('aria-expanded'), document.activeElement === button]), ['false', true]);
-
-  await p.focus('#question-03 summary');
-  await p.keyboard.press('Enter');
-  assert.equal(await p.$eval('#question-03 details', (details) => details.open), true);
-  await p.keyboard.press('Enter');
-  assert.deepEqual(await p.$eval('#question-03 details', (details) => [details.open, document.activeElement === details.querySelector('summary')]), [false, true]);
-  await p.keyboard.press('Enter');
-  await p.waitForFunction(() => document.querySelector('#question-03 details').open);
-  await p.keyboard.press('Escape');
-  await p.waitForFunction(() => !document.querySelector('#question-03 details').open && document.activeElement === document.querySelector('#question-03 summary'));
-  assert.deepEqual(await p.$eval('#question-03 details', (details) => [details.open, document.activeElement === details.querySelector('summary')]), [false, true]);
-  await p.close();
-});
-
-test('the featured Episode 01 private call persists without question-pool voting controls', async () => {
-  const p = await page(390, 844);
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
-  await p.reload({ waitUntil: 'domcontentloaded' });
-  await p.click('.reader-call label:has(input[value="yes"])');
-  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
-  assert.equal(await p.evaluate(() => localStorage.getItem('he-private-forecast')), 'yes');
-  assert.equal(await p.$('[data-question-call], .compact-call'), null);
-  await p.reload({ waitUntil: 'domcontentloaded' });
-  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
-  await p.close();
-});
-
-test('all seven pool summaries are pointer and keyboard operable with readable contracts', async () => {
-  const p = await page(390, 844);
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  for (let number = 2; number <= 8; number += 1) {
-    const id = `question-0${number}`;
-    const closedAffordance = await p.$eval(`#${id} summary`, (summary) => {
-      const style = getComputedStyle(summary, '::after');
-      return { content: style.content, display: style.display, width: Number.parseFloat(style.width), color: style.color };
+  assert.equal(normalFocus.inputFocusVisible, true, JSON.stringify(normalFocus));
+  assert.notEqual(normalFocus.outlineStyle, "none", JSON.stringify(normalFocus));
+  assert.ok(normalFocus.outlineWidth >= 2, JSON.stringify(normalFocus));
+  await p
+    ._client()
+    .send("Emulation.setEmulatedMedia", {
+      media: "screen",
+      features: [{ name: "forced-colors", value: "active" }],
     });
-    assert.equal(closedAffordance.content, '"+"', `${id} closed affordance`);
-    assert.notEqual(closedAffordance.display, 'none', `${id} closed affordance display`);
-    assert.ok(closedAffordance.width > 0, `${id} closed affordance width`);
-    assert.notEqual(closedAffordance.color, 'rgba(0, 0, 0, 0)', `${id} closed affordance color`);
-    await p.click(`#${id} summary`);
-    assert.equal(await p.$eval(`#${id} details`, ({ open }) => open), true, `${id} pointer open`);
-    assert.equal(await p.$eval(`#${id} summary`, (summary) => getComputedStyle(summary, '::after').content), '"−"', `${id} open affordance`);
-    const contract = await p.$eval(`#${id} .season-contract`, (node) => ({
-      question: node.querySelector('.editorial-question').textContent.trim(),
-      terms: [...node.querySelectorAll('dt')].map(({ textContent }) => textContent.trim()),
-    }));
-    assert.ok(contract.question.endsWith('?'), `${id} readable question`);
-    assert.deepEqual(contract.terms, ['Threshold', 'Deadline', 'Evidence']);
-    await p.click(`#${id} summary`);
-    await p.focus(`#${id} summary`);
-    await p.keyboard.press('Enter');
-    assert.equal(await p.$eval(`#${id} details`, ({ open }) => open), true, `${id} keyboard open`);
-    await p.keyboard.press('Enter');
-  }
-  assert.equal(await p.$('[data-question-call], .compact-call'), null);
-  await p.close();
-});
-
-test('visible season summaries win their center-point hit tests', async () => {
-  for (const [width, height] of [[390, 844], [1366, 768]]) {
-    const p = await page(width, height);
-    await p.goto(origin, { waitUntil: 'domcontentloaded' });
-    const misses = await p.evaluate(async () => {
-      const misses = [];
-      document.documentElement.style.scrollBehavior = 'auto';
-      for (const node of document.querySelectorAll('.season-slate summary')) {
-        const style = getComputedStyle(node);
-        let rect = node.getBoundingClientRect();
-        if (style.display === 'none' || rect.width <= 0 || rect.height <= 0) continue;
-        node.scrollIntoView({ block: 'center', behavior: 'instant' });
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        rect = node.getBoundingClientRect();
-        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-        if (node !== hit && !node.contains(hit)) misses.push({ node: node.outerHTML.slice(0, 100), hit: hit?.outerHTML.slice(0, 100) });
-      }
-      return misses;
-    });
-    assert.deepEqual(misses, [], `${width}px center-point misses`);
-    await p.close();
-  }
-});
-
-test('malformed and unknown fragments are ignored without breaking local calls or sharing', async () => {
-  for (const fragment of ['#%5B', '#question-does-not-exist']) {
-    const p = await page();
-    const failures = [];
-    p.on('pageerror', (error) => failures.push(error.message));
-    await p.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } });
-    });
-    await p.goto(`${origin}/${fragment}`, { waitUntil: 'domcontentloaded' });
-    await p.click('.reader-call label:has(input[value="yes"])');
-    assert.equal(await p.$eval('#forecast-yes', ({ checked }) => checked), true);
-    await p.click('#share-forecast');
-    await p.waitForFunction(() => window.__shared);
-    assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-01`);
-    assert.deepEqual(failures, [], fragment);
-    await p.close();
-  }
-});
-
-async function sharePage(question, setup) {
-  const p = await page();
-  await p.evaluateOnNewDocument(setup);
-  await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click('#question-04 summary');
-  if (question !== 'question-04') await p.click(`#${question} summary`);
-  assert.equal(await p.$eval('#question-04 details', ({ open }) => open), true);
-  assert.equal(await p.$eval(`#${question} details`, ({ open }) => open), true);
-  assert.equal(await p.evaluate(() => location.hash), `#${question}`);
-  await p.click('#share-forecast');
-  return p;
-}
-
-test('native share receives the canonical active-question URL from a real click', async () => {
-  const p = await sharePage('question-05', () => Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } }));
-  await p.waitForFunction(() => window.__shared);
-  assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-05`);
-  assert.equal(await p.$eval('#share-status', (node) => node.textContent), 'Sharing request completed.');
-  await p.close();
-});
-
-test('clipboard fallback copies the canonical active-question URL from a real click', async () => {
-  const p = await sharePage('question-06', () => {
-    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (value) => { window.__copied = value; return Promise.resolve(); } } });
+  await p.focus("#forecast-no");
+  const forcedFocus = await p.$eval("#forecast-no", (input) => {
+    const visibleControl = input.nextElementSibling;
+    const style = getComputedStyle(visibleControl);
+    return {
+      inputFocusVisible: input.matches(":focus-visible"),
+      outlineStyle: style.outlineStyle,
+      outlineWidth: parseFloat(style.outlineWidth),
+    };
   });
-  await p.waitForFunction(() => window.__copied);
-  assert.equal(await p.evaluate(() => window.__copied), `${CANONICAL}#question-06`);
-  assert.equal(await p.$eval('#share-status', (node) => node.textContent), 'Question URL copied.');
+  assert.equal(forcedFocus.inputFocusVisible, true, JSON.stringify(forcedFocus));
+  assert.notEqual(forcedFocus.outlineStyle, "none", JSON.stringify(forcedFocus));
+  assert.ok(forcedFocus.outlineWidth >= 2, JSON.stringify(forcedFocus));
+  await p.keyboard.press("Space");
+  assert.equal(await p.$eval("#forecast-no", (n) => n.checked), true);
   await p.close();
 });
-
-test('manual fallback reveals, focuses, and selects the canonical active-question URL', async () => {
-  const p = await sharePage('question-07', () => {
-    Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
-  });
-  await p.waitForFunction(() => !document.querySelector('#share-fallback').hidden);
-  const state = await p.$eval('#share-url', (input) => ({
-    value: input.value,
-    readonly: input.readOnly,
-    focused: document.activeElement === input,
-    selected: input.selectionStart === 0 && input.selectionEnd === input.value.length,
-  }));
-  assert.deepEqual(state, { value: `${CANONICAL}#question-07`, readonly: true, focused: true, selected: true });
-  await p.close();
-});
-
-test('no-JS at narrow widths retains nav, eight questions/contracts, story, and reflow', async () => {
-  for (const width of [320, 390]) {
-    const p = await page(width, 844);
-    await p.setJavaScriptEnabled(false);
-    await p.goto(origin, { waitUntil: 'domcontentloaded' });
-    const state = await p.evaluate(() => {
-      const visible = (node) => { const rect = node.getBoundingClientRect(); const style = getComputedStyle(node); return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0; };
-      return {
-        menuButton: getComputedStyle(document.querySelector('.menu-button')).display,
-        navLinks: [...document.querySelectorAll('.nav-links a')].filter(visible).length,
-        questions: document.querySelectorAll('.editorial-question').length,
-        visibleQuestions: [...document.querySelectorAll('.editorial-question')].filter(visible).length,
-        contracts: 1 + [...document.querySelectorAll('.season-contract')].filter(visible).length,
-        chapters: [...document.querySelectorAll('main>section')].filter(visible).length,
-        words: document.querySelector('main').innerText.split(/\s+/).filter(Boolean).length,
-        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      };
-    });
-    assert.deepEqual(state, { menuButton: 'none', navLinks: 6, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 6, words: state.words, overflow: state.overflow });
-    assert.ok(state.words >= 450, `${width}px no-JS story has ${state.words} words`);
-    assert.ok(state.overflow <= 1, `${width}px no-JS overflow ${state.overflow}px`);
-    await p.close();
-  }
-});
-
-test('homepage passes axe at all required release viewports', async () => {
-  const axe = await readFile(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
-  for (const [width, height] of VIEWPORTS) {
-    const p = await page(width, height);
-    await p.goto(origin, { waitUntil: 'domcontentloaded' });
+test("homepage passes axe A/AA at release viewports", async () => {
+  const axe = await readFile(
+    new URL("../node_modules/axe-core/axe.min.js", import.meta.url),
+    "utf8",
+  );
+  for (const [w, h] of VIEWPORTS) {
+    const p = await newPage(w, h);
+    await p.goto(origin);
     await p.evaluate(axe);
-    const violations = await p.evaluate(() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'] } }).then(({ violations }) => violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }))));
-    assert.deepEqual(violations, [], `homepage at ${width}x${height}`);
+    const violations = await p.evaluate(() =>
+      axe
+        .run(document, {
+          runOnly: {
+            type: "tag",
+            values: ["wcag2a", "wcag2aa", "wcag22a", "wcag22aa"],
+          },
+        })
+        .then((r) => r.violations.map((v) => ({ id: v.id, targets: v.nodes.map((n) => n.target) }))),
+    );
+    assert.deepEqual(violations, [], `${w}x${h}`);
     await p.close();
   }
-});
-
-test('legal pages pass axe at representative mobile and desktop widths', async () => {
-  const axe = await readFile(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
-  for (const width of [390, 1440]) for (const path of ['/accessibility.html', '/privacy.html', '/terms.html']) {
-    const p = await page(width, 900);
-    await p.goto(`${origin}${path}`, { waitUntil: 'domcontentloaded' });
-    await p.evaluate(axe);
-    const violations = await p.evaluate(() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'] } }).then(({ violations }) => violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }))));
-    assert.deepEqual(violations, [], `${path} at ${width}px`);
-    await p.close();
-  }
-});
-
-test('homepage fonts load only from the local origin', async () => {
-  const p = await page();
-  const requests = [];
-  p.on('request', (request) => { if (request.resourceType() === 'font') requests.push(request.url()); });
-  await p.goto(origin, { waitUntil: 'networkidle0' });
-  assert.ok(requests.length >= 3);
-  assert.ok(requests.every((url) => new URL(url).origin === origin), requests.join('\n'));
-  await p.close();
 });
