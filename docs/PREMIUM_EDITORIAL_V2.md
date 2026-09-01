@@ -22,7 +22,7 @@ Removed: sample-data banner and loader, percentage rows, listening-destination l
 
 ## Product-loop state
 
-Episode 01 has a public editorial question, threshold, deadline, and evidence class. Its private reader YES/NO call is local browser state only, is not a submitted forecast, and is not a probability ledger. The additional questions form a pool rather than episode assignments. Sharing derives from canonical metadata and prefers the current valid question fragment, then the latest open pool disclosure. No public audience aggregate, playback, commentary, or forecast ledger is claimed.
+Episode 01 has a public editorial question, threshold, deadline, and evidence class. Its private reader YES/NO call is the only local browser call, is not a submitted forecast, and is not a probability ledger. The additional questions form an unassigned, inspectable native-disclosure pool with no voting controls. Sharing derives from canonical metadata and prefers the current valid question fragment, then the latest open pool disclosure; malformed and unknown fragments are ignored. No public audience aggregate, playback, commentary, or forecast ledger is claimed.
 
 ## Public invariants
 
@@ -32,7 +32,7 @@ Episode 01 has a public editorial question, threshold, deadline, and evidence cl
 - No sample states, fabricated values, unavailable controls, platform promises, or hidden roadmap claims.
 - Native details preserve a linear no-JS reading order; enhanced mobile reveals one contract on demand.
 - All authored controls meet a 44px minimum target.
-- Canonical sharing, local choices, keyboard escape behavior, reduced motion, forced colors, legal links, and noindex metadata remain.
+- Canonical sharing, the Episode 01 local choice, keyboard escape behavior, reduced motion, forced colors, legal links, and noindex metadata remain.
 
 ## Acceptance gates
 
@@ -40,11 +40,11 @@ Episode 01 has a public editorial question, threshold, deadline, and evidence cl
 2. `npm run check` passes content, asset, metadata, privacy, and legal assertions.
 3. `npm run build` succeeds before browser execution.
 4. `npm test` passes the full unit, server, security, legal, and browser suite.
-5. Local geometry records desktop and mobile page height, section heights, visible-word budget, overflow, portrait count, and target sizes. The six-viewport release matrix records 512 visible main words throughout; at 390×844 it measures 5,567px / 6.60 viewports, with zero horizontal overflow and no visible authored target below 44px.
-6. Browser gates cover all six exact homepage viewports, axe at each viewport, no-JS at 320/390, reduced motion, forced colors, keyboard and pointer operation, local persistence, canonical share paths, hit testing, console/page/CSP errors, local fonts, portable browser discovery, and an explicit randomized-port launch gate.
+5. Local geometry records desktop and mobile page height, section heights, visible-word budget, overflow, portrait count, and target sizes. The six-viewport release matrix records 461 visible main words throughout; at 390×844 it measures 5,567px / 6.60 viewports, with zero horizontal overflow and no visible authored target below 44px.
+6. Browser gates cover all six exact homepage viewports, axe at each viewport, no-JS at 320/390, reduced motion, forced colors, all seven pool disclosures by keyboard and pointer, Episode 01 local persistence, malformed/unknown fragments, three real-click canonical share paths, hit testing, console/page/CSP errors, local fonts, portable browser discovery, and an explicit randomized-port launch gate.
 7. No push, merge, deployment, or external publication in Tick 1.
 
 ## Tick status
 
-- **Tick 1 — implementation and automated gates:** review blockers fixed locally and automated gates complete; independent review remains pending, with no independent PASS claimed.
+- **Tick 1 — implementation and automated gates:** safe fragment handling, truthful unassigned pool data, and removal of competing pool Y/N controls are fixed locally; automated gates are complete. Independent re-review remains pending, with no independent PASS claimed.
 - **Tick 2 — browser matrix and deep visual dogfood:** pending conductor scheduling; this roadmap makes no public promise.

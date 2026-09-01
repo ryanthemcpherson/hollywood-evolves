@@ -22,10 +22,9 @@ test('homepage uses one editorial question pool and complete question contracts'
   assert.equal((html.match(/<dt>Threshold<\/dt>/g) || []).length, 8);
   assert.equal((html.match(/<dt>Deadline<\/dt>/g) || []).length, 8);
   assert.equal((html.match(/<dt>Evidence<\/dt>/g) || []).length, 8);
-  assert.equal((html.match(/data-question-call/g) || []).length, 14);
+  assert.doesNotMatch(html, /data-question-call|compact-call|question-0[1-8]-call/);
   assert.match(html, /Editorial question pool/i);
   assert.doesNotMatch(html, /Season one editorial slate/i);
-  assert.doesNotMatch(html, /name="question-01-call"/);
   assert.equal((html.match(/ian-mcpherson\.webp/g) || []).length, 1);
   assert.match(html, /<span class="operating-system">Operating System<\/span>/);
 });
