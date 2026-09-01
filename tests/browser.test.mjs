@@ -139,6 +139,20 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
         const lineHeight = Number.parseFloat(style.lineHeight);
         return { text: heading.textContent.trim(), clipped: ['hidden', 'clip'].includes(style.overflow) || heading.clientHeight + 2 < lineHeight };
       });
+      const headingWordSplits = [...document.querySelectorAll('h1,h2')].filter(visible).flatMap((heading) => {
+        const walker = document.createTreeWalker(heading, NodeFilter.SHOW_TEXT);
+        const splits = [];
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          for (const match of node.data.matchAll(/\S+/g)) {
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            if (range.getClientRects().length > 1) splits.push({ heading: heading.textContent.trim(), word: match[0] });
+          }
+        }
+        return splits;
+      });
       const mainText = document.querySelector('main').innerText;
       const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
       const operating = document.querySelector('.operating-system');
@@ -154,6 +168,7 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
         smallTargets: targets.filter(({ width: targetWidth, height: targetHeight }) => targetWidth < 43.5 || targetHeight < 43.5),
         gridErrors: gridChecks.filter(({ error }) => error > 1.5),
         headingClips: headingClips.filter(({ clipped }) => clipped),
+        headingWordSplits,
         operatingRects: operating.getClientRects().length,
         operatingWhiteSpace: getComputedStyle(operating).whiteSpace,
       };
@@ -163,6 +178,7 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
     assert.deepEqual(metrics.smallTargets, [], `${width}x${height} small targets`);
     assert.deepEqual(metrics.gridErrors, [], `${width}x${height} off-grid children`);
     assert.deepEqual(metrics.headingClips, [], `${width}x${height} clipped headings`);
+    assert.deepEqual(metrics.headingWordSplits, [], `${width}x${height} split heading words`);
     assert.ok(metrics.operatingRects === 1 || metrics.operatingWhiteSpace === 'nowrap', `${width}x${height}: Operating System wraps`);
     assert.equal(metrics.blocks.length, 6, `${width}x${height}: essential chapter count`);
     assert.ok(metrics.words > 300 && metrics.paragraphs >= 15 && metrics.longParagraphs >= 5, JSON.stringify(metrics));
@@ -315,8 +331,17 @@ test('all seven pool summaries are pointer and keyboard operable with readable c
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
   for (let number = 2; number <= 8; number += 1) {
     const id = `question-0${number}`;
+    const closedAffordance = await p.$eval(`#${id} summary`, (summary) => {
+      const style = getComputedStyle(summary, '::after');
+      return { content: style.content, display: style.display, width: Number.parseFloat(style.width), color: style.color };
+    });
+    assert.equal(closedAffordance.content, '"+"', `${id} closed affordance`);
+    assert.notEqual(closedAffordance.display, 'none', `${id} closed affordance display`);
+    assert.ok(closedAffordance.width > 0, `${id} closed affordance width`);
+    assert.notEqual(closedAffordance.color, 'rgba(0, 0, 0, 0)', `${id} closed affordance color`);
     await p.click(`#${id} summary`);
     assert.equal(await p.$eval(`#${id} details`, ({ open }) => open), true, `${id} pointer open`);
+    assert.equal(await p.$eval(`#${id} summary`, (summary) => getComputedStyle(summary, '::after').content), '"−"', `${id} open affordance`);
     const contract = await p.$eval(`#${id} .season-contract`, (node) => ({
       question: node.querySelector('.editorial-question').textContent.trim(),
       terms: [...node.querySelectorAll('dt')].map(({ textContent }) => textContent.trim()),

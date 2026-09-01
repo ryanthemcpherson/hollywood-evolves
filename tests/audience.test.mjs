@@ -42,7 +42,8 @@ test('Episode 01 has an immutable draft ID and cannot publish audience values ye
     'he-question-07-vfx-evolution-v1',
     'he-question-08-animation-evolution-v1',
   ]);
-  assert.equal(audienceCampaigns.length, 8);
+  assert.equal(audienceCampaigns.length, 1);
+  assert.deepEqual(audienceCampaigns.map(({ questionId }) => questionId), [forecastQuestions[0].id]);
   assert.ok(forecastQuestions.every(({ state, opensAt, closesAt }) => state === 'draft' && opensAt === null && closesAt === null));
 });
 
@@ -50,6 +51,7 @@ test('only Episode 01 is assigned to an episode; pool questions remain unassigne
   assert.equal(forecastQuestions[0].episode, '01');
   assert.deepEqual(forecastQuestions.slice(1).map(({ episode }) => episode), Array(7).fill(null));
   assert.ok(forecastQuestions.slice(1).every(({ id, state }) => id.startsWith('he-question-') && state === 'draft'));
+  assert.ok(forecastQuestions.slice(1).every(({ id }) => !audienceCampaigns.some(({ questionId }) => questionId === id)));
 });
 
 test('records a direct forecast and exposes only aggregate source-separated results', async () => {
