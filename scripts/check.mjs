@@ -8,13 +8,16 @@ const failures = [];
 const required = ['Hollywood', 'Operating System', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)'];
 for (const term of required) if (!html.includes(term)) failures.push(`Missing required copy: ${term}`);
 
-for (const pattern of [/Apple Podcasts/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
-for (const id of ['top', 'format', 'forecast', 'season', 'host', 'method']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+const prohibited = /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i;
+if (prohibited.test(`${html}\n${js}`)) failures.push('Homepage or homepage JavaScript contains a prohibited state, fake value, or platform promise.');
+for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
+for (const id of ['top', 'past', 'present', 'forecast', 'season', 'host', 'method']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
 if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
 if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
-if ((html.match(/data-question-id=/g) || []).length !== 8) failures.push('Eight atlas questions are required.');
+const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
+if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
 if (/data-question-call|compact-call|name="question-0[1-8]-call"/.test(html) || /compact-call/.test(css) || js.includes('he-private-question-calls')) failures.push('The question pool must remain native disclosures without local voting controls or storage.');
-if ((html.match(/<details/g) || []).length !== 10) failures.push('All eight atlas entries plus formal contract and evidence require native disclosures.');
+if ((html.match(/<details/g) || []).length !== 7) failures.push('Themes 02–08 require native disclosures.');
 if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
 if (!/@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/.test(css)) failures.push('Enhanced mobile contracts must use progressive disclosure.');
 for (const term of ['localStorage', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) if (!js.includes(term)) failures.push(`Missing interaction contract: ${term}`);
@@ -43,4 +46,4 @@ for (const term of ['he-private-forecast', 'localStorage', 'not sent to Hollywoo
 for (const term of ['not betting or gambling products', 'investment, legal, or business advice']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
-console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 atlas questions).`);
+console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 unique questions).`);
