@@ -22,11 +22,18 @@ test('editorial narrative is singular, subject-first, and chaptered', async () =
   const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
   assert.equal(questions.length, 8);
   assert.equal(new Set(questions).size, 8, 'each question is narrated once');
+  assert.match(html, /Editorial question pool/i);
+  assert.doesNotMatch(html, /Season one editorial slate/i);
+  assert.doesNotMatch(html, /Streaming began by removing commercial breaks/i);
+  assert.match(html, /Subscription streaming sold viewers an ad-free alternative/);
+  assert.match(html, /private reader call/i);
+  assert.match(html, /not (?:an? )?(?:episode )?probability ledger/i);
 });
 
 test('mobile contract is concise and every authored target is at least 44px', async () => {
   const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
-  assert.equal((html.match(/data-question-call/g) || []).length, 16);
+  assert.equal((html.match(/data-question-call/g) || []).length, 14);
+  assert.doesNotMatch(html, /name="question-01-call"/);
   assert.match(css, /--target:\s*44px/);
   assert.match(css, /@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/);
   assert.doesNotMatch(css, /@keyframes|animation\s*:/);

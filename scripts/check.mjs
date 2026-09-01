@@ -16,7 +16,7 @@ if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian 
 if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
 const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
 if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
-if ((html.match(/data-question-call/g) || []).length !== 16) failures.push('Every season theme requires local YES and NO inputs.');
+if ((html.match(/data-question-call/g) || []).length !== 14 || /name="question-01-call"/.test(html)) failures.push('Questions 02–08 require local YES and NO inputs without duplicating the Episode 01 call.');
 if ((html.match(/<details/g) || []).length !== 7) failures.push('Themes 02–08 require native disclosures.');
 if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
 if (!/@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/.test(css)) failures.push('Enhanced mobile contracts must use progressive disclosure.');

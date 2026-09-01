@@ -89,7 +89,10 @@ function canonicalShareUrl() {
   try {
     const canonical = document.querySelector('link[rel="canonical"]')?.href;
     const url = new URL(canonical || location.href, location.href);
-    url.hash = disclosures.find(({ open }) => open)?.closest('li[id]')?.id || 'question-01';
+    const fragmentTarget = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+    const currentQuestion = fragmentTarget?.matches('#question-01.question-block, .season-slate > li[id]') ? fragmentTarget.id : null;
+    const latestOpenQuestion = disclosures.findLast(({ open }) => open)?.closest('li[id]')?.id;
+    url.hash = currentQuestion || latestOpenQuestion || 'question-01';
     return url.href;
   } catch { return location.href; }
 }

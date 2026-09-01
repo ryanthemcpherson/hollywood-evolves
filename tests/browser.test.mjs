@@ -277,36 +277,43 @@ test('skip link, mobile menu, and native disclosures preserve keyboard focus', a
   await p.close();
 });
 
-test('all eight season call groups are keyboard reachable', async () => {
+test('the seven question-pool call groups are keyboard reachable without a duplicate question 01 control', async () => {
   const p = await page();
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
   const reached = new Set();
-  for (let index = 0; index < 100 && reached.size < 8; index += 1) {
+  for (let index = 0; index < 100 && reached.size < 7; index += 1) {
     await p.keyboard.press('Tab');
     const name = await p.evaluate(() => document.activeElement.matches?.('[data-question-call]') ? document.activeElement.name : null);
     if (name) reached.add(name);
   }
-  assert.deepEqual([...reached].sort(), Array.from({ length: 8 }, (_, index) => `question-0${index + 1}-call`));
+  assert.deepEqual([...reached].sort(), Array.from({ length: 7 }, (_, index) => `question-0${index + 2}-call`));
+  assert.equal(await p.$('#season input[name="question-01-call"]'), null);
   await p.close();
 });
 
-test('pointer and keyboard season calls persist independently after reload', async () => {
+test('the featured q1 call and pointer/keyboard question-pool calls q2–q8 persist independently', async () => {
   const p = await page(390, 844);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
+  await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
   await p.evaluate(() => localStorage.removeItem('he-private-question-calls'));
   await p.reload({ waitUntil: 'domcontentloaded' });
-  await p.click('#question-02 .compact-call label:has(input[value="yes"])');
-  assert.equal(await p.$eval('#question-02 input[value="yes"]', (input) => input.checked), true);
-  await p.focus('#question-03 input[value="no"]');
-  await p.keyboard.press('Space');
-  assert.equal(await p.$eval('#question-03 input[value="no"]', (input) => input.checked), true);
-  assert.deepEqual(JSON.parse(await p.evaluate(() => localStorage.getItem('he-private-question-calls'))), { 'question-02': 'yes', 'question-03': 'no' });
+  await p.click('.reader-call label:has(input[value="yes"])');
+  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
+  const expected = {};
+  for (let number = 2; number <= 8; number += 1) {
+    const question = `question-0${number}`;
+    const value = number % 2 === 0 ? 'yes' : 'no';
+    expected[question] = value;
+    const selector = `#${question} input[value="${value}"]`;
+    if (number % 2 === 0) await p.click(`${selector} + span`);
+    else { await p.focus(selector); await p.keyboard.press('Space'); }
+    assert.equal(await p.$eval(selector, (input) => input.checked), true);
+  }
+  assert.equal(await p.evaluate(() => localStorage.getItem('he-private-forecast')), 'yes');
+  assert.deepEqual(JSON.parse(await p.evaluate(() => localStorage.getItem('he-private-question-calls'))), expected);
   await p.reload({ waitUntil: 'domcontentloaded' });
-  assert.deepEqual(await p.evaluate(() => [
-    document.querySelector('#question-02 input[value="yes"]').checked,
-    document.querySelector('#question-03 input[value="no"]').checked,
-    document.querySelector('#question-02 input[value="no"]').checked,
-  ]), [true, true, false]);
+  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
+  assert.deepEqual(await p.evaluate(() => [...document.querySelectorAll('[data-question-call]:checked')].map(({ name, value }) => [name, value])), Object.entries(expected).map(([question, value]) => [`${question}-call`, value]));
   await p.close();
 });
 
@@ -338,32 +345,36 @@ async function sharePage(question, setup) {
   const p = await page();
   await p.evaluateOnNewDocument(setup);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click(`#${question} summary`);
+  await p.click('#question-04 summary');
+  if (question !== 'question-04') await p.click(`#${question} summary`);
+  assert.equal(await p.$eval('#question-04 details', ({ open }) => open), true);
+  assert.equal(await p.$eval(`#${question} details`, ({ open }) => open), true);
+  assert.equal(await p.evaluate(() => location.hash), `#${question}`);
   await p.click('#share-forecast');
   return p;
 }
 
 test('native share receives the canonical active-question URL from a real click', async () => {
-  const p = await sharePage('question-04', () => Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } }));
+  const p = await sharePage('question-05', () => Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } }));
   await p.waitForFunction(() => window.__shared);
-  assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-04`);
+  assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-05`);
   assert.equal(await p.$eval('#share-status', (node) => node.textContent), 'Sharing request completed.');
   await p.close();
 });
 
 test('clipboard fallback copies the canonical active-question URL from a real click', async () => {
-  const p = await sharePage('question-05', () => {
+  const p = await sharePage('question-06', () => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (value) => { window.__copied = value; return Promise.resolve(); } } });
   });
   await p.waitForFunction(() => window.__copied);
-  assert.equal(await p.evaluate(() => window.__copied), `${CANONICAL}#question-05`);
+  assert.equal(await p.evaluate(() => window.__copied), `${CANONICAL}#question-06`);
   assert.equal(await p.$eval('#share-status', (node) => node.textContent), 'Question URL copied.');
   await p.close();
 });
 
 test('manual fallback reveals, focuses, and selects the canonical active-question URL', async () => {
-  const p = await sharePage('question-06', () => {
+  const p = await sharePage('question-07', () => {
     Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
   });
@@ -374,7 +385,7 @@ test('manual fallback reveals, focuses, and selects the canonical active-questio
     focused: document.activeElement === input,
     selected: input.selectionStart === 0 && input.selectionEnd === input.value.length,
   }));
-  assert.deepEqual(state, { value: `${CANONICAL}#question-06`, readonly: true, focused: true, selected: true });
+  assert.deepEqual(state, { value: `${CANONICAL}#question-07`, readonly: true, focused: true, selected: true });
   await p.close();
 });
 
