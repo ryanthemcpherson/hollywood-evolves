@@ -40,8 +40,9 @@ Episode 01 has a public editorial question, threshold, deadline, and evidence cl
 2. `npm run check` passes content, asset, metadata, privacy, and legal assertions.
 3. `npm run build` succeeds before browser execution.
 4. `npm test` passes the full unit, server, security, legal, and browser suite.
-5. Local geometry records desktop and mobile page height, section heights, visible-word budget, overflow, portrait count, and target sizes.
-6. No push, merge, deployment, or external publication in Tick 1.
+5. Local geometry records desktop and mobile page height, section heights, visible-word budget, overflow, portrait count, and target sizes. The six-viewport release matrix records 499 visible main words throughout; at 390×844 it measures 5,563px / 6.59 viewports, with zero horizontal overflow and no visible authored target below 44px.
+6. Browser gates cover all six exact homepage viewports, axe at each viewport, no-JS at 320/390, reduced motion, forced colors, keyboard and pointer operation, local persistence, canonical share paths, hit testing, console/page/CSP errors, local fonts, portable browser discovery, and an explicit randomized-port launch gate.
+7. No push, merge, deployment, or external publication in Tick 1.
 
 ## Tick status
 
