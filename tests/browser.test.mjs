@@ -42,9 +42,9 @@ export function browserCandidates(
   return [
     ...(env.PATH || "")
       .split(delimiter)
-      .flatMap((d) => ["chromium", "google-chrome"].map((n) => join(d, n))),
-    "/usr/bin/chromium",
+      .flatMap((d) => ["google-chrome", "chromium"].map((n) => join(d, n))),
     "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
   ];
 }
 async function randomPort() {
@@ -138,11 +138,12 @@ after(async () => {
   }
 });
 test("browser discovery and randomized port are portable", () => {
-  assert.ok(
-    browserCandidates("linux", { PATH: "/bin:/usr/bin" }).some((x) =>
-      x.endsWith("/chromium"),
-    ),
-  );
+  const linuxCandidates = browserCandidates("linux", { PATH: "/usr/bin" });
+  assert.deepEqual(linuxCandidates.slice(0, 2), [
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ]);
+  assert.ok(linuxCandidates.some((x) => x.endsWith("/chromium")));
   assert.ok(localPort > 0);
 });
 test("episode cut tabs are keyboard logical and never autoplay", async () => {
