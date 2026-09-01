@@ -31,6 +31,27 @@ test('editorial narrative is singular, subject-first, and chaptered', async () =
   assert.match(html, /not (?:an? )?(?:episode )?probability ledger/i);
 });
 
+test('hero explains the one-way-to-feedback shift with a semantic control map', async () => {
+  const html = await read('index.html');
+  const hero = html.match(/<section class="hero\b[\s\S]*?<\/section>/)?.[0];
+  assert.ok(hero, 'hero section exists');
+  assert.equal(hero.includes('supply-instrument'), false, 'hero must not retain .supply-instrument');
+  assert.doesNotMatch(hero, /<svg\b/, 'hero must not contain SVG');
+  assert.match(hero, /<figure class="control-map"(?:\s|>)/);
+  const flows = [...hero.matchAll(/<(ol|ul)\b[^>]*class="control-map__stages[^\"]*"[^>]*>([\s\S]*?)<\/\1>/g)]
+    .map(([, element, content]) => ({
+      element,
+      stages: [...content.matchAll(/<li[^>]*>([^<]+)<\/li>/g)].map(([, stage]) => stage.trim()),
+    }));
+  assert.deepEqual(flows, [
+    { element: 'ol', stages: ['Studio', 'Release', 'Audience'] },
+    { element: 'ul', stages: ['Production', 'Cloud', 'Audience'] },
+  ]);
+  assert.match(hero, /<dt>Then<\/dt>[\s\S]*?<ol\b/);
+  assert.match(hero, /<dt>Now<\/dt>[\s\S]*?<ul\b/);
+  assert.match(hero, /<figcaption[^>]*>A one-way pipeline became a feedback system\.<\/figcaption>/);
+});
+
 test('mobile contract is concise and every authored target is at least 44px', async () => {
   const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
   assert.doesNotMatch(html, /data-question-call|compact-call|question-0[1-8]-call/);
