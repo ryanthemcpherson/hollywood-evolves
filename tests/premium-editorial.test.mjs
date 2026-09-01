@@ -29,6 +29,10 @@ test('editorial narrative is singular, subject-first, and chaptered', async () =
   assert.match(html, /Subscription streaming sold viewers an ad-free alternative/);
   assert.match(html, /private reader call/i);
   assert.match(html, /not (?:an? )?(?:episode )?probability ledger/i);
+  const forecastChapter = html.match(/<section class="forecast\b[\s\S]*?<\/section>/)?.[0];
+  assert.ok(forecastChapter, 'forecast chapter exists');
+  assert.match(forecastChapter, /class="episode-kicker"/);
+  assert.match(forecastChapter, /class="question-gloss"/);
 });
 
 test('hero explains the one-way-to-feedback shift with a semantic control map', async () => {
@@ -50,6 +54,34 @@ test('hero explains the one-way-to-feedback shift with a semantic control map', 
   assert.match(hero, /<dt>Then<\/dt>[\s\S]*?<ol\b/);
   assert.match(hero, /<dt>Now<\/dt>[\s\S]*?<ul\b/);
   assert.match(hero, /<figcaption[^>]*>A one-way pipeline became a feedback system\.<\/figcaption>/);
+  assert.match(hero, /class="control-map__legend"/);
+  assert.match(hero, /one-way release/i);
+  assert.match(hero, /live feedback/i);
+});
+
+test('transition chapter artifacts carry no sub-11px labels', async () => {
+  const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
+  assert.match(html, /<div class="artifact waveform"[^>]*>/);
+  assert.doesNotMatch(css, /\.waveform span\s*\{[^}]*font:\s*10px/);
+  assert.doesNotMatch(css, /font:\s*10px\s+var\(--mono\)/);
+});
+
+test('episode question leads the forecast chapter ahead of its framing headline', async () => {
+  const html = await read('index.html');
+  const chapter = html.match(/<section class="forecast\b[\s\S]*?<\/section>/)?.[0];
+  assert.ok(chapter, 'forecast chapter exists');
+  const questionIndex = chapter.indexOf('Will at least three of Netflix');
+  const headingIndex = chapter.indexOf('When does the ad tier become the main tier?');
+  assert.ok(questionIndex >= 0 && headingIndex >= 0, 'both the question and framing headline exist');
+  assert.ok(questionIndex < headingIndex, 'the measurable question precedes the framing headline');
+  assert.match(chapter, /id="question-01"/);
+});
+
+test('hero action and control-map caption name Episode 01 explicitly', async () => {
+  const html = await read('index.html');
+  assert.match(html, /Read the Episode 01 question/);
+  const caption = html.match(/<figcaption[^>]*>([^<]+)<\/figcaption>/)?.[1];
+  assert.equal(caption, 'A one-way pipeline became a feedback system.');
 });
 
 test('mobile contract is concise and every authored target is at least 44px', async () => {
