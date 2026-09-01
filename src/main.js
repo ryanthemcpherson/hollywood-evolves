@@ -49,7 +49,7 @@ function fragmentElement() {
 }
 function openFragment() {
   const item = fragmentElement();
-  const disclosure = item?.querySelector('details');
+  const disclosure = item?.matches('.season-slate > li[id]') ? item.querySelector('details') : null;
   if (disclosure) disclosure.open = true;
 }
 disclosures.forEach((details) => details.addEventListener('toggle', () => {
