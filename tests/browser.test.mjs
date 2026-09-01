@@ -8,6 +8,11 @@ import test, { after, before } from 'node:test';
 import puppeteer from 'puppeteer-core';
 
 const VIEWPORTS = [[320, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]];
+const HERO_GEOMETRY_VIEWPORTS = [
+  { width: 320, height: 844, maxPageHeight: 5975, layout: 'stacked' },
+  { width: 390, height: 844, maxPageHeight: 5660, layout: 'stacked' },
+  { width: 1366, height: 768, maxPageHeight: 4411, layout: 'side-by-side' },
+];
 const CANONICAL = 'https://hollywoodevolves.mcpherson.app/';
 let browser;
 let child;
@@ -104,6 +109,80 @@ test('subject-first cover has one clear action and no host portrait', async () =
   assert.equal(cover.portraits, 0);
   assert.ok(cover.bottom <= 840, JSON.stringify(cover));
   await p.close();
+});
+
+test('control map keeps the hero balanced within existing page-height budgets', async () => {
+  for (const { width, height, maxPageHeight, layout } of HERO_GEOMETRY_VIEWPORTS) {
+    const p = await page(width, height);
+    await p.goto(origin, { waitUntil: 'networkidle0' });
+    const state = await p.evaluate(() => {
+      const visible = (node) => {
+        const style = getComputedStyle(node);
+        const rect = node.getBoundingClientRect();
+        return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+      };
+      const hero = document.querySelector('.hero');
+      const copy = hero.querySelector('.hero-copy').getBoundingClientRect();
+      const map = hero.querySelector('.control-map');
+      const mapRect = map?.getBoundingClientRect();
+      const targets = [...document.querySelectorAll('a,button,summary,label,input:not([type="radio"])')]
+        .filter(visible)
+        .map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { node: node.tagName.toLowerCase(), width: rect.width, height: rect.height };
+        });
+      return {
+        mapCount: hero.querySelectorAll('.control-map').length,
+        svgCount: hero.querySelectorAll('svg').length,
+        pageHeight: document.documentElement.scrollHeight,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        smallTargets: targets.filter(({ width: targetWidth, height: targetHeight }) => targetWidth < 43.5 || targetHeight < 43.5),
+        copy: copy.toJSON(),
+        map: mapRect?.toJSON() || null,
+      };
+    });
+    const label = `${width}x${height}`;
+    assert.equal(state.mapCount, 1, `${label}: one control map`);
+    assert.equal(state.svgCount, 0, `${label}: hero SVG count`);
+    assert.ok(state.pageHeight <= maxPageHeight, `${label}: page height ${state.pageHeight}px > ${maxPageHeight}px`);
+    assert.ok(state.overflow <= 1, `${label}: overflow ${state.overflow}px`);
+    assert.deepEqual(state.smallTargets, [], `${label}: authored targets`);
+    assert.ok(state.map.height >= 220 && state.map.height <= 360, `${label}: control-map height ${state.map.height}px`);
+    if (layout === 'stacked') {
+      assert.ok(state.map.top - state.copy.bottom >= 24, `${label}: stacked gap`);
+      assert.ok(Math.abs(state.map.left - state.copy.left) <= 1 && Math.abs(state.map.width - state.copy.width) <= 1, `${label}: stacked alignment`);
+    } else {
+      assert.ok(state.map.left - state.copy.right >= 24, `${label}: column gap`);
+      const centerDelta = (state.map.top + state.map.height / 2) - (state.copy.top + state.copy.height / 2);
+      assert.ok(Math.abs(centerDelta) <= 48, `${label}: vertical center delta ${centerDelta}px`);
+    }
+    await p.close();
+  }
+});
+
+test('control map labels and connectors stay separated through the tablet split layout', async () => {
+  for (const width of [701, 768, 900]) {
+    const p = await page(width, 900);
+    await p.goto(origin, { waitUntil: 'networkidle0' });
+    const state = await p.evaluate(() => [...document.querySelectorAll('.control-map__stages')].map((flow) => {
+      const gap = Number.parseFloat(getComputedStyle(flow).columnGap);
+      const stages = [...flow.querySelectorAll('li')];
+      return {
+        gap,
+        connectorSizes: stages.slice(0, -1).map((stage) => Number.parseFloat(getComputedStyle(stage, '::after').fontSize)),
+        labelOverflows: stages.flatMap((stage) => {
+          const box = stage.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(stage.firstChild);
+          const text = range.getBoundingClientRect();
+          return text.left < box.left - .5 || text.right > box.right + .5 ? [stage.textContent] : [];
+        }),
+      };
+    }));
+    assert.deepEqual(state.flatMap(({ labelOverflows }) => labelOverflows), [], `${width}px: stage-label overflow`);
+    assert.ok(state.every(({ gap, connectorSizes }) => connectorSizes.every((size) => size <= gap)), `${width}px: connector fits its gap`);
+    await p.close();
+  }
 });
 
 test('homepage viewport matrix preserves reflow, grid, type, target, and reading budgets', async () => {
@@ -221,7 +300,7 @@ test('reduced motion is static and does not move content', async () => {
       const style = getComputedStyle(node);
       return style.animationName !== 'none' || style.transitionDuration.split(',').some((value) => Number.parseFloat(value) > 0);
     }).map((node) => node.tagName);
-    const tracked = [...document.querySelectorAll('main>section,.supply-instrument,.artifact')];
+    const tracked = [...document.querySelectorAll('main>section,.control-map,.artifact')];
     const before = tracked.map((node) => node.getBoundingClientRect().toJSON());
     await new Promise((resolve) => setTimeout(resolve, 250));
     const after = tracked.map((node) => node.getBoundingClientRect().toJSON());

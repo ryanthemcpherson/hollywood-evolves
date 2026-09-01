@@ -14,6 +14,11 @@ for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframe
 for (const id of ['top', 'past', 'present', 'forecast', 'season', 'host', 'method']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
 if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
 if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
+const hero = html.match(/<section class="hero\b[\s\S]*?<\/section>/)?.[0] || '';
+if (/supply-instrument/.test(hero)) failures.push('Hero must not retain the supply instrument.');
+if (/<svg\b/.test(hero)) failures.push('Hero must not contain SVG.');
+if (!/<figure class="control-map"(?:\s|>)/.test(hero)) failures.push('Hero requires the semantic control map.');
+for (const term of ['Then', 'Studio', 'Release', 'Audience', 'Now', 'Production', 'Cloud', 'A one-way pipeline became a feedback system.']) if (!hero.includes(term)) failures.push(`Hero control map missing: ${term}`);
 const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
 if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
 if (/data-question-call|compact-call|name="question-0[1-8]-call"/.test(html) || /compact-call/.test(css) || js.includes('he-private-question-calls')) failures.push('The question pool must remain native disclosures without local voting controls or storage.');
