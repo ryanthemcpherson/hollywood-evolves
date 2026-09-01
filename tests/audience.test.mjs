@@ -4,6 +4,7 @@ import { AudienceSignalStore, generateLinkedInPostCopy, parseLinkedInReactionCsv
 import { audienceCampaigns, forecastQuestions } from '../lib/forecast-questions.mjs';
 import { LinkedInReactionImportAdapter } from '../lib/linkedin-reaction-adapter.mjs';
 
+const OPEN_NOW = () => '2026-08-30T12:00:00.000Z';
 const openQuestion = {
   id: 'he-test-question-v1',
   prompt: 'Will the test resolve YES?',
@@ -41,12 +42,20 @@ test('Episode 01 has an immutable draft ID and cannot publish audience values ye
     'he-question-07-vfx-evolution-v1',
     'he-question-08-animation-evolution-v1',
   ]);
-  assert.equal(audienceCampaigns.length, 8);
+  assert.equal(audienceCampaigns.length, 1);
+  assert.deepEqual(audienceCampaigns.map(({ questionId }) => questionId), [forecastQuestions[0].id]);
   assert.ok(forecastQuestions.every(({ state, opensAt, closesAt }) => state === 'draft' && opensAt === null && closesAt === null));
 });
 
+test('only Episode 01 is assigned to an episode; pool questions remain unassigned drafts', () => {
+  assert.equal(forecastQuestions[0].episode, '01');
+  assert.deepEqual(forecastQuestions.slice(1).map(({ episode }) => episode), Array(7).fill(null));
+  assert.ok(forecastQuestions.slice(1).every(({ id, state }) => id.startsWith('he-question-') && state === 'draft'));
+  assert.ok(forecastQuestions.slice(1).every(({ id }) => !audienceCampaigns.some(({ questionId }) => questionId === id)));
+});
+
 test('records a direct forecast and exposes only aggregate source-separated results', async () => {
-  const store = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret' });
+  const store = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', now: OPEN_NOW });
   const result = await store.recordDirectResponse({
     questionId: openQuestion.id,
     choice: 'yes',
@@ -97,7 +106,7 @@ test('enforces one direct response per browser and idempotent retries', async ()
 
 test('rejects invalid, closed, and malformed direct responses', async () => {
   const closedQuestion = { ...openQuestion, id: 'he-closed-v1', state: 'draft' };
-  const store = new AudienceSignalStore({ questions: [openQuestion, closedQuestion], secret: 'test-secret' });
+  const store = new AudienceSignalStore({ questions: [openQuestion, closedQuestion], secret: 'test-secret', now: OPEN_NOW });
   const valid = {
     questionId: openQuestion.id,
     choice: 'yes',
@@ -187,7 +196,7 @@ test('generates clear LinkedIn reaction poll copy with mapping and cutoff', () =
 });
 
 test('round-trips aggregate inputs and audit records for durable storage', async () => {
-  const first = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret' });
+  const first = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', now: OPEN_NOW });
   const response = {
     questionId: openQuestion.id,
     choice: 'no',
@@ -197,7 +206,7 @@ test('round-trips aggregate inputs and audit records for durable storage', async
     source: 'site',
   };
   await first.recordDirectResponse(response);
-  const restored = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', initialState: first.snapshot() });
+  const restored = new AudienceSignalStore({ questions: [openQuestion], secret: 'test-secret', initialState: first.snapshot(), now: OPEN_NOW });
 
   assert.equal(restored.publicResults(openQuestion.id).directForecasts.no, 1);
   assert.deepEqual(await restored.recordDirectResponse(response), { accepted: false, duplicate: true });
