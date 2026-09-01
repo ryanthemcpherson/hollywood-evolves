@@ -31,14 +31,9 @@ function get(port, path, method = 'GET', body = null, requestHeaders = {}) {
 
 async function startServer(t, env = {}) {
   const port = await availablePort();
-  const childEnv = { ...process.env, PORT: String(port), DEMO_MODE: 'false', ...env };
-  if (!Object.hasOwn(env, 'DATABASE_URL')) delete childEnv.DATABASE_URL;
-  for (const [key, value] of Object.entries(childEnv)) {
-    if (value === undefined) delete childEnv[key];
-  }
   const child = spawn(process.execPath, ['server.mjs'], {
     cwd: new URL('..', import.meta.url),
-    env: childEnv,
+    env: { ...process.env, PORT: String(port), ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   t.after(async () => {
@@ -336,63 +331,15 @@ test('authenticated commentary stays pending until a configured editor approves 
   assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
 });
 
-test('test server does not inherit ambient demo database configuration', async (t) => {
-  const previousDemoMode = process.env.DEMO_MODE;
-  const previousDatabaseUrl = process.env.DATABASE_URL;
-  process.env.DEMO_MODE = 'true';
-  process.env.DATABASE_URL = 'postgres://127.0.0.1:1/ambient-must-not-be-used';
-  let started;
-  try {
-    started = await startServer(t);
-  } finally {
-    if (previousDemoMode === undefined) delete process.env.DEMO_MODE;
-    else process.env.DEMO_MODE = previousDemoMode;
-    if (previousDatabaseUrl === undefined) delete process.env.DATABASE_URL;
-    else process.env.DATABASE_URL = previousDatabaseUrl;
-  }
-
-  assert.equal((await get(started.port, '/readyz')).status, 200);
-  assert.equal((await get(started.port, '/api/demo-state')).status, 404);
-});
-
-test('demo runtime fails closed when its explicitly enabled database is unavailable', async (t) => {
+test('public runtime retires the demo route even when stale deployment variables remain', async (t) => {
   const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: 'postgres://127.0.0.1:1/none' });
   const response = await get(port, '/api/demo-state');
-  assert.equal(response.status, 503);
-  assert.deepEqual(JSON.parse(response.body), { demo: true, label: 'DEMO · ILLUSTRATIVE FORECAST DATA · NOT LIVE', error: 'Demo data unavailable' });
-  assert.equal(response.headers['cache-control'], 'no-store');
+  assert.equal(response.status, 404);
   const mutation = await get(port, '/api/demo-state', 'POST', '{}', { 'content-type': 'application/json' });
-  assert.equal(mutation.status, 405);
+  assert.equal(mutation.status, 404);
   const ready = await get(port, '/readyz');
-  assert.equal(ready.status, 503);
-  assert.deepEqual(JSON.parse(ready.body), { status: 'unavailable', demoMode: true });
+  assert.equal(ready.status, 200);
+  assert.deepEqual(JSON.parse(ready.body), { status: 'ready' });
   const health = await get(port, '/healthz');
   assert.equal(health.status, 200);
-});
-
-test('demo runtime fails closed when explicitly enabled without database configuration', async (t) => {
-  const { port } = await startServer(t, { DEMO_MODE: 'true', DATABASE_URL: undefined });
-
-  assert.equal((await get(port, '/healthz')).status, 200);
-
-  const ready = await get(port, '/readyz');
-  assert.equal(ready.status, 503);
-  assert.deepEqual(JSON.parse(ready.body), { status: 'unavailable', demoMode: true });
-
-  const response = await get(port, '/api/demo-state');
-  assert.equal(response.status, 503);
-  assert.deepEqual(JSON.parse(response.body), { demo: true, label: 'DEMO · ILLUSTRATIVE FORECAST DATA · NOT LIVE', error: 'Demo data unavailable' });
-  assert.equal(response.headers['cache-control'], 'no-store');
-
-  const head = await get(port, '/api/demo-state', 'HEAD');
-  assert.equal(head.status, 503);
-  assert.equal(head.body, '');
-  assert.equal(head.headers['cache-control'], 'no-store');
-
-  const mutation = await get(port, '/api/demo-state', 'POST');
-  assert.equal(mutation.status, 405);
-  assert.equal(mutation.headers.allow, 'GET, HEAD');
-
-  const disabled = await startServer(t, { DEMO_MODE: 'false', DATABASE_URL: undefined });
-  assert.equal((await get(disabled.port, '/api/demo-state')).status, 404);
 });
