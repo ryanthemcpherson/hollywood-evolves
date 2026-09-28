@@ -104,6 +104,16 @@ The approved wordmark is `/brand/wordmark.svg`; use it on light surfaces with th
 
 Primary actions use signal red on white. A page should normally expose one primary action at a time. Forecast and status components must distinguish known, unknown, and unresolved states with text, not color alone.
 
+## Illustration
+
+The brief calls for historical milestones and forecast themes rendered as high-impact visual metaphors. The site answers that with original, flat, cut-paper vector illustrations in the style of mid-century title sequences and film one-sheets, never with photoreal or generated imagery that could be mistaken for archival evidence.
+
+- Build every illustration from the brand colors only: ink, paper, paper alt, signal red, signal blue, muted, and white. Flat fills, hard edges, and simple opacity layers; no gradients, filters, or textures.
+- Depict objects, places, and silhouettes rather than faces or identifiable people. Ian's supplied portrait remains the only photograph.
+- Keep type out of the artwork. Episode numbers, titles, and captions are HTML so they stay accessible, crisp, and translatable.
+- Illustrations are decorative (`alt=""`); the adjacent copy carries the meaning. Serve them as self-contained `/art/*.svg` images without scripts, styles, or external references.
+- `scripts/build-art.mjs` is the source of truth. Regenerate with `npm run art`; `npm run check` rejects off-brand colors and unsafe markup.
+
 ## Do's and Don'ts
 
 - Do reference the shared brand assets and tokens directly.
@@ -111,4 +121,5 @@ Primary actions use signal red on white. A page should normally expose one prima
 - Do preserve generous contrast and visible focus treatment.
 - Don't create page-specific logos, palettes, taglines, or social cards.
 - Don't use gradients, rounded product-dashboard cards, or decorative effects that weaken the editorial system.
+- Don't publish photoreal or AI-generated imagery; it reads as synthetic and can be mistaken for archival evidence.
 - Don't imply partnerships, publication status, verification, or forecast certainty through branding.
