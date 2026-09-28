@@ -52,3 +52,11 @@
 - The hero drawing now has a light loop: reels turn, the beam breathes, and the screen cycles through the four aspect ratios named in its caption. This supersedes the earlier "no decorative motion" rule for the hero only.
 - Guardrails: motion exists only under `prefers-reduced-motion: no-preference`, a caption checkbox pauses it (WCAG 2.2.2), and nothing else animates.
 - The director's chairs gained small refinements: rounded posts and armrests, stitched hems, a sagging seat, a pivot bolt, and a floor shadow.
+
+## 2026-09-28 — Account-tied forecasting
+
+- Members sign in with LinkedIn (OIDC with PKCE) and submit 1–99% forecasts. Storage is Postgres (schema `he`) on the project's existing Railway database. Every revision is kept; the latest per member counts.
+- Votes are anonymous to the public: only the Community Forecast (median in log-odds, shown once 10 members have forecast) and the forecaster count are published. Hollywood Evolves keeps an internal database of members and their votes for scoring and Market Updates; the admin export includes names and emails.
+- Comments are attributed to the member's account (with consent) and moderated.
+- Account deletion removes identity, sessions, and comments; forecasts stay under a pseudonymous one-way code derived from the LinkedIn subject, so past aggregates and scores do not change and a delete-and-rejoin cannot count one person twice (security review finding, 2026-09-28).
+- Episode 01 opens for forecasts in the first migration. Everything stays fail-closed until `AUTH_ENABLED=true` and the LinkedIn app, secrets, and database are configured.
