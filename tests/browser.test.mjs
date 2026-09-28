@@ -87,7 +87,8 @@ after(async () => {
 });
 
 test('browser discovery is portable and the server uses an explicit randomized-port gate', () => {
-  const windows = browserCandidates('win32', { PROGRAMFILES: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\reader\\AppData\\Local' });
+  const windows = browserCandidates('win32', { PROGRAMFILES: 'C:\\Program Files', LOCALAPPDATA: 'C:\\Users\\reader\\AppData\\Local' })
+    .map((candidate) => candidate.replaceAll('\\', '/'));
   assert.ok(windows.some((candidate) => candidate.endsWith('Google/Chrome/Application/chrome.exe')));
   assert.ok(windows.some((candidate) => candidate.endsWith('Microsoft/Edge/Application/msedge.exe')));
   assert.ok(browserCandidates('linux', { PATH: '/bin:/usr/bin' }).some((candidate) => candidate.endsWith('/chromium')));
