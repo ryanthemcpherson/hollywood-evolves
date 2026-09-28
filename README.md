@@ -10,7 +10,7 @@ The historical product brief proposes that each episode explain a prior industry
 
 ## Current scope
 
-1. A responsive editorial website that follows the executive brief: the series thesis, the three-act episode format, the eight-episode Season One slate, the Episode 01 forecast, the Expert Alpha / Community Forecast / Market Update loop, and the host.
+1. A responsive editorial website that follows the executive brief: the series thesis, the three-act episode format, a dated timeline of the pivots each episode covers, the eight-episode Season One slate, the Episode 01 forecast, the Expert Alpha / Community Forecast / Market Update loop, and the host.
 2. A browser-local 0–100 probability forecast for the Episode 01 question; it is not submitted, published, or counted.
 3. A visible threshold, deadline, and evidence frame for each editorial question.
 4. Static accessibility, privacy, and terms pages.
@@ -55,12 +55,15 @@ The homepage is a segmented editorial scroll on one 12-column grid, ordered to m
 
 1. **Cover** — the brief's thesis ("Hollywood keeps reinventing itself. What happens next?"), the host-plus-two-guests promise, routes to the Episode 01 forecast and Season One, and the TMT Insights × DEG production credit marking DEG's 30th anniversary.
 2. **Format** — three director's chairs (host, historical guest, operating guest) above the brief's running order: Introduction (5 min), Act I — The Past, Act II — The Present, and Act III — Future Synthesis (10 min each). Bar widths stay proportional to minutes at every breakpoint.
-3. **Season One** — the brief's numbered slate, Episodes 01–08, each with a poster illustration, a then → now arc, the brief's synopsis, and its forecast question in a native disclosure (Episode 01 links to its chapter).
-4. **Episode 01** — "When does the ad tier become the main tier?", the measurable question with threshold, deadline, and evidence, and a private 0–100 probability control with canonical sharing.
-5. **Prediction market** — Expert Alpha → Community Forecast → Market Update, framed as calibration rather than crowning winners.
-6. **Host** — Ian McPherson's supplied portrait, which appears once on the page.
+3. **History** — "Hollywood has done this before": fourteen dated milestones, seven for Act I (the past, 1902–1953) and seven for Act II (the present, 1995–2023), side by side on wide screens. Each links to the episode it anchors, and `npm run check` rejects a milestone whose link or episode label does not resolve.
+4. **Season One** — the brief's numbered slate, Episodes 01–08, each with a poster illustration, a then → now arc, the brief's synopsis, and its forecast question in a native disclosure (Episode 01 links to its chapter). On wide screens the cards share subgrid rows so titles, synopses, and question rows align.
+5. **Episode 01** — "When does the ad tier become the main tier?", the measurable question with threshold, deadline, and evidence, and a private 0–100 probability control with canonical sharing.
+6. **Prediction market** — Expert Alpha → Community Forecast → Market Update, framed as calibration rather than crowning winners.
+7. **Host** — Ian McPherson's supplied portrait, which appears once on the page.
 
 The illustrations in `public/art/` are original flat, cut-paper vector art in the brand palette, drawn as mid-century title-sequence and one-sheet posters so they read as editorial design rather than generated imagery. `scripts/build-art.mjs` is their source; edit it and run `npm run art`, then commit the regenerated SVGs. `npm run check` rejects art that contains scripts, styles, external references, or off-brand colors.
+
+The same script writes `public/brand/social-card.svg`: the cover thesis beside the projector art, with the canonical inverse wordmark embedded unchanged and no partnership claim. `npm run social-card` rasterizes it to the 1200×630 `social-card.png` with the local brand fonts loaded, and refuses to render if they fail to load.
 
 The interface progressively enhances its mobile menu, Episode 01 local forecast, canonical sharing, and question fragments. With JavaScript disabled, primary navigation and all eight question contracts remain in reading order. Reduced-motion preferences retain static presentation, and forced-colors rules preserve focus and selected states.
 
