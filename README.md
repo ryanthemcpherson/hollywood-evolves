@@ -63,6 +63,8 @@ The homepage is a segmented editorial scroll on one 12-column grid, ordered to m
 
 The illustrations in `public/art/` are original flat, cut-paper vector art in the brand palette, drawn as mid-century title-sequence and one-sheet posters so they read as editorial design rather than generated imagery. `scripts/build-art.mjs` is their source; edit it and run `npm run art`, then commit the regenerated SVGs. `npm run check` rejects art that contains scripts, styles, external references, or off-brand colors.
 
+The hero drawing is the one exception to image-loaded art: `npm run art` also writes it inline into `index.html` (between the `hero-art` markers) so `src/style.css` can animate it. The loop is slow, pausable from the caption, and disabled for reduced-motion visitors; `npm run check` fails if the inline copy drifts from `public/art/hero.svg`.
+
 The same script writes `public/brand/social-card.svg`: the cover thesis beside the projector art, with the canonical inverse wordmark embedded unchanged and no partnership claim. `npm run social-card` rasterizes it to the 1200×630 `social-card.png` with the local brand fonts loaded, and refuses to render if they fail to load.
 
 The interface progressively enhances its mobile menu, Episode 01 local forecast, canonical sharing, and question fragments. With JavaScript disabled, primary navigation and all eight question contracts remain in reading order. Reduced-motion preferences retain static presentation, and forced-colors rules preserve focus and selected states.
