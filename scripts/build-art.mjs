@@ -245,12 +245,15 @@ ${wordmark}
 // Format — three director's chairs: host, historical guest, operating guest.
 function chairs() {
   const chair = (cx, canvas) => [
-    `<rect x="${cx - 70}" y="10" width="10" height="142" fill="${color.ink}"/><rect x="${cx + 60}" y="10" width="10" height="142" fill="${color.ink}"/>`,
+    `<ellipse cx="${cx}" cy="254" rx="86" ry="5" fill="${color.ink}" opacity=".12"/>`,
+    `<rect x="${cx - 70}" y="8" width="10" height="144" rx="3" fill="${color.ink}"/><rect x="${cx + 60}" y="8" width="10" height="144" rx="3" fill="${color.ink}"/>`,
     `<rect x="${cx - 62}" y="20" width="124" height="56" fill="${canvas}"/>`,
-    `<rect x="${cx - 82}" y="104" width="164" height="9" fill="${color.ink}"/>`,
-    `<rect x="${cx - 66}" y="134" width="132" height="18" fill="${canvas}"/>`,
+    `<path d="M${cx - 62} 25 H${cx + 62} M${cx - 62} 71 H${cx + 62}" stroke="${color.ink}" stroke-width="1.5" stroke-dasharray="4 3" opacity=".22"/>`,
+    `<rect x="${cx - 86}" y="102" width="172" height="10" rx="5" fill="${color.ink}"/>`,
+    `<path d="M${cx - 66} 134 H${cx + 66} V152 Q${cx} 159 ${cx - 66} 152 Z" fill="${canvas}"/>`,
     `<path d="M${cx - 58} 152 L${cx + 58} 244 M${cx + 58} 152 L${cx - 58} 244" stroke="${color.ink}" stroke-width="9"/>`,
-    `<rect x="${cx - 74}" y="242" width="148" height="8" fill="${color.ink}"/>`,
+    `<circle cx="${cx}" cy="198" r="3.5" fill="${color.paper}"/>`,
+    `<rect x="${cx - 74}" y="242" width="148" height="8" rx="2" fill="${color.ink}"/>`,
   ].join('');
   return svg(900, 260, [chair(150, color.red), chair(450, color.muted), chair(750, color.blue)].join('\n'));
 }
