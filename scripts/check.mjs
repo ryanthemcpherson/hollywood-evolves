@@ -3,7 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 const read = (path) => readFileSync(path, 'utf8');
 const html = read('index.html');
 const css = read('src/style.css');
-const js = read('src/main.js');
+const js = `${read('src/main.js')}
+${read('src/forecasting.js')}`;
 const failures = [];
 const required = ['Hollywood', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'Act I — The Past', 'Act II — The Present', 'Act III — Future Synthesis', 'Expert Alpha', 'Community Forecast', 'Market Update', '1947 theatergoer', 'Complexity Tax', 'Synthetic Idol', 'Méliès', 'A Trip to the Moon', 'The Jazz Singer', 'Paramount', 'Dolby Atmos', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)', 'DEG’s 30th anniversary'];
 for (const term of required) if (!html.includes(term)) failures.push(`Missing required copy: ${term}`);
@@ -57,9 +58,10 @@ if ([...html.matchAll(/<img src="\/art\/[^"]+"([^>]*)>/g)].some(([, attributes])
 
 const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
 if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
-if ((html.match(/<details/g) || []).length !== 7) failures.push('Episodes 02–08 require native disclosures.');
+const seasonSection = html.match(/<section class="season chapter"[\s\S]*?<\/section>/)?.[0] || '';
+if ((seasonSection.match(/<details/g) || []).length !== 7) failures.push('Episodes 02–08 require native disclosures.');
 if (/name="private-forecast"|data-question-call|compact-call/.test(html)) failures.push('Only the Episode 01 probability control may collect a local forecast.');
-if (!/<input id="forecast-probability" type="range" min="0" max="100" step="1"/.test(html)) failures.push('Episode 01 requires a 0–100 probability control.');
+if (!/<input id="forecast-probability" type="range" min="1" max="99" step="1"/.test(html)) failures.push('Episode 01 requires a 1–99 probability control.');
 if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
 for (const term of ['localStorage', 'he-private-forecast', 'aria-valuetext', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) if (!js.includes(term)) failures.push(`Missing interaction contract: ${term}`);
 
@@ -83,8 +85,8 @@ for (const file of ['accessibility.html', 'privacy.html', 'terms.html']) {
   for (const marker of ['<a class="skip" href="#main">', '<main class="legal-main" id="main" tabindex="-1">', 'name="robots" content="noindex, nofollow"', 'Back to Hollywood Evolves']) if (!page.includes(marker)) failures.push(`${file} missing ${marker}`);
 }
 for (const term of ['WCAG 2.2 Level AA', 'not a legal certification']) if (!read('public/accessibility.html').includes(term)) failures.push(`Accessibility page missing ${term}`);
-for (const term of ['he-private-forecast', 'localStorage', 'not sent to Hollywood Evolves', 'question pool has no voting controls', 'Web Share']) if (!read('public/privacy.html').includes(term)) failures.push(`Privacy page missing ${term}`);
-for (const term of ['not betting or gambling products', 'investment, legal, or business advice']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
+for (const term of ['he-private-forecast', 'localStorage', 'not sent to Hollywood Evolves', 'question pool has no voting controls', 'Web Share', 'Sign in with LinkedIn', 'does not verify your identity', 'never published with your name', '__Host-he_session', 'pseudonymous code derived one-way']) if (!read('public/privacy.html').includes(term)) failures.push(`Privacy page missing ${term}`);
+for (const term of ['not betting or gambling products', 'investment, legal, or business advice', 'they are not wagers', 'Comments are moderated before publication']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
 console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 unique questions; ${artFiles.length} illustrations).`);

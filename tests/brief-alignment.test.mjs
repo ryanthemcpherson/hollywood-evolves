@@ -107,16 +107,21 @@ test('each editorial question appears once with a complete contract', async () =
   for (let number = 2; number <= 8; number += 1) assert.match(html, new RegExp(`<li class="episode" id="question-0${number}">`));
 });
 
-test('the Episode 01 chapter pairs the measurable question with a private probability forecast', async () => {
+test('the Episode 01 chapter pairs the question with a local forecast that sign-in can submit', async () => {
   const html = await read('index.html');
   const chapter = section(html, 'forecast chapter');
   assert.ok(chapter, 'forecast chapter exists');
   assert.match(chapter, /<h2 id="forecast-title">When does the ad tier become the main tier\?<\/h2>/);
   assert.match(chapter, /<article class="question-block" id="question-01"/);
   assert.match(chapter, /Will at least three of Netflix, Disney\+, HBO Max, Peacock, and Paramount\+ report more U\.S\. subscribers/);
-  assert.match(chapter, /<input id="forecast-probability" type="range" min="0" max="100" step="1" value="50"/);
+  assert.match(chapter, /<input id="forecast-probability" type="range" min="1" max="99" step="1" value="50"/);
   assert.match(chapter, /<output id="forecast-output" for="forecast-probability">Not set<\/output>/);
+  assert.match(chapter, /<aside class="reader-call" aria-labelledby="reader-call-title" data-mode="local">/);
   assert.match(text(chapter), /not submitted, published, or counted in a Community Forecast/);
+  // Account and aggregate UI stay hidden until the server confirms sign-in is enabled.
+  for (const id of ['community-forecast', 'account-guest', 'account-member']) assert.match(chapter, new RegExp(`id="${id}"[^>]*hidden`));
+  assert.match(chapter, /<a class="signin-action" id="signin-link" href="\/auth\/linkedin\?return=%2F%23question-01">Sign in with LinkedIn to submit<\/a>/);
+  assert.match(text(chapter), /The public sees only the Community Forecast, never your individual forecast\./);
   assert.doesNotMatch(chapter, /type="radio"/);
 });
 
@@ -172,9 +177,12 @@ test('mobile contract keeps authored targets at 44px and native disclosures', as
 });
 
 test('forecast, canonical share, native details, and keyboard code remain', async () => {
-  const [html, js] = await Promise.all([read('index.html'), read('src/main.js')]);
+  const [html, main, forecasting] = await Promise.all([read('index.html'), read('src/main.js'), read('src/forecasting.js')]);
+  const js = `${main}\n${forecasting}`;
+  assert.match(main, /import \{ initForecasting \} from '\.\/forecasting\.js';/);
   assert.match(html, /rel="canonical"/);
-  assert.equal((html.match(/<details/g) || []).length, 7);
+  assert.equal((section(html, 'season chapter').match(/<details/g) || []).length, 7);
+  assert.equal((html.match(/<details/g) || []).length, 8, 'seven question disclosures plus the member forecast history');
   for (const term of ['localStorage', 'he-private-forecast', 'aria-valuetext', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) {
     assert.ok(js.includes(term), term);
   }

@@ -409,6 +409,183 @@ test('forced colors preserves disclosure and Episode 01 forecast focus states', 
   await p.close();
 });
 
+const EPISODE_01 = 'he-episode-01-customer-evolution-v1';
+const openCommunity = (overrides = {}) => ({
+  questionId: EPISODE_01, status: 'open', opensAt: '2026-09-28T00:00:00.000Z', closesAt: null,
+  forecasters: 3, minimumForecasters: 10, community: null, expert: [], resolution: null, ...overrides,
+});
+
+// Answers contract-shaped API responses in the browser (docs/forecasting-api.md) and records the calls.
+async function mockForecastApi(p, handlers) {
+  const calls = [];
+  await p.setRequestInterception(true);
+  p.on('request', (request) => {
+    const url = new URL(request.url());
+    const key = `${request.method()} ${url.pathname}`;
+    if (url.origin !== origin || !(key in handlers)) return request.continue();
+    calls.push({ key, headers: request.headers(), body: request.postData() ? JSON.parse(request.postData()) : null });
+    const handler = handlers[key];
+    const [status, body] = typeof handler === 'function' ? handler(calls) : handler;
+    return request.respond({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  return calls;
+}
+
+async function setSlider(p, value) {
+  await p.$eval('#forecast-probability', (input, next) => {
+    input.value = String(next);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }, value);
+}
+
+test('with sign-in off, the forecast stays browser-only and no account UI appears', async () => {
+  const p = await page(390, 844);
+  const sessions = [];
+  p.on('response', async (response) => { if (new URL(response.url()).pathname === '/api/session') sessions.push([response.status(), await response.json().catch(() => null)]); });
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  const state = await p.evaluate(() => ({
+    mode: document.querySelector('.reader-call').dataset.mode,
+    hidden: ['community-forecast', 'account-guest', 'account-member'].map((id) => document.getElementById(id).hidden),
+    note: document.querySelector('#privacy-note').textContent,
+  }));
+  assert.deepEqual(sessions, [[200, { authEnabled: false }]], 'sign-in off is reported without a failed request');
+  assert.deepEqual(state, { mode: 'local', hidden: [true, true, true], note: 'Your forecast is saved only in this browser. It is not submitted, published, or counted in a Community Forecast.' });
+  await p.close();
+});
+
+test('signed-out visitors see the forecaster count and a LinkedIn sign-in that returns to the question', async () => {
+  const p = await page(390, 844);
+  await mockForecastApi(p, {
+    'GET /api/session': [200, { authEnabled: true, authenticated: false }],
+    [`GET /api/forecasts/${EPISODE_01}`]: [200, openCommunity()],
+  });
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  await p.waitForFunction(() => !document.querySelector('#community-forecast').hidden);
+  const state = await p.evaluate(() => ({
+    mode: document.querySelector('.reader-call').dataset.mode,
+    guest: document.querySelector('#account-guest').hidden,
+    member: document.querySelector('#account-member').hidden,
+    signIn: document.querySelector('#signin-link').getAttribute('href'),
+    value: document.querySelector('#community-value').textContent,
+    detail: document.querySelector('#community-detail').textContent,
+  }));
+  assert.deepEqual(state, {
+    mode: 'guest', guest: false, member: true,
+    signIn: '/auth/linkedin?return=%2F%23question-01',
+    value: '3 of 10 forecasters so far',
+    detail: 'The Community Forecast appears once 10 people have forecast.',
+  });
+  await p.close();
+});
+
+test('members submit and revise with CSRF protection and see the aggregate and Expert Alpha', async () => {
+  const p = await page(390, 844);
+  const submitted = { probability: 62, submittedAt: '2026-09-28T15:00:00.000Z' };
+  const calls = await mockForecastApi(p, {
+    'GET /api/session': [200, { authEnabled: true, authenticated: true, member: { name: 'Ada Lovelace', verifiedIndustry: false }, csrfToken: 'csrf-test', commentaryEnabled: false }],
+    [`GET /api/forecasts/${EPISODE_01}`]: [200, openCommunity({ forecasters: 12, community: { probability: 41 }, expert: [{ name: 'Guest Historian', role: 'Film historian', probability: 35, recordedAt: '2026-11-10T00:00:00.000Z' }] })],
+    [`GET /api/forecasts/${EPISODE_01}/mine`]: [200, { current: null, history: [], score: null }],
+    [`POST /api/forecasts/${EPISODE_01}`]: [201, { current: submitted, history: [submitted], score: null }],
+  });
+  await p.evaluateOnNewDocument(() => localStorage.removeItem('he-private-forecast'));
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  await p.waitForFunction(() => !document.querySelector('#account-member').hidden && document.querySelector('#community-value').textContent);
+  await p.click('#submit-forecast');
+  assert.equal(await p.$eval('#forecast-status', (node) => node.textContent), 'Move the slider to choose your forecast first.');
+  assert.equal(calls.filter(({ key }) => key.startsWith('POST')).length, 0, 'an untouched slider is never submitted');
+  await setSlider(p, 62);
+  await p.click('#submit-forecast');
+  await p.waitForFunction(() => document.querySelector('#submit-forecast').textContent === 'Update forecast');
+  const post = calls.find(({ key }) => key === `POST /api/forecasts/${EPISODE_01}`);
+  assert.deepEqual(post.body, { probability: 62 });
+  assert.equal(post.headers['x-csrf-token'], 'csrf-test');
+  const state = await p.evaluate(() => ({
+    name: document.querySelector('#member-name').textContent,
+    status: document.querySelector('#forecast-status').textContent,
+    history: [...document.querySelectorAll('#forecast-history-list li strong')].map((node) => node.textContent),
+    historyHidden: document.querySelector('#forecast-history').hidden,
+    community: document.querySelector('#community-value').textContent,
+    experts: [...document.querySelectorAll('#expert-list li')].map((node) => node.textContent),
+    note: document.querySelector('#privacy-note').textContent,
+  }));
+  assert.equal(state.name, 'Ada Lovelace');
+  assert.match(state.status, /^Submitted 62% at /);
+  assert.deepEqual(state.history, ['62%']);
+  assert.equal(state.historyHidden, false);
+  assert.equal(state.community, '41%');
+  assert.deepEqual(state.experts, ['Guest Historian, Film historian35%']);
+  assert.match(state.note, /never your individual forecast/);
+  await p.close();
+});
+
+test('forecast errors are explained, and an expired session falls back to sign-in', async () => {
+  const p = await page(390, 844);
+  let postStatus = [409, { error: 'question_not_open' }];
+  await mockForecastApi(p, {
+    'GET /api/session': [200, { authEnabled: true, authenticated: true, member: { name: 'Ada Lovelace', verifiedIndustry: false }, csrfToken: 'csrf-test', commentaryEnabled: false }],
+    [`GET /api/forecasts/${EPISODE_01}`]: [200, openCommunity()],
+    [`GET /api/forecasts/${EPISODE_01}/mine`]: [200, { current: null, history: [], score: null }],
+    [`POST /api/forecasts/${EPISODE_01}`]: () => postStatus,
+  });
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  await p.waitForFunction(() => !document.querySelector('#account-member').hidden);
+  await setSlider(p, 30);
+  await p.click('#submit-forecast');
+  await p.waitForFunction(() => document.querySelector('#forecast-status').textContent === 'This question is not open for forecasts right now.');
+  postStatus = [401, { error: 'unauthenticated' }];
+  await p.click('#submit-forecast');
+  await p.waitForFunction(() => document.querySelector('.reader-call').dataset.mode === 'guest');
+  assert.match(await p.$eval('#account-status', (node) => node.textContent), /Your session ended/);
+  assert.equal(await p.evaluate(() => localStorage.getItem('he-private-forecast')), '30', 'the unsent forecast is kept locally');
+  await p.close();
+});
+
+test('deleting the account asks first, sends CSRF, and returns to the signed-out state', async () => {
+  const p = await page(390, 844);
+  const calls = await mockForecastApi(p, {
+    'GET /api/session': [200, { authEnabled: true, authenticated: true, member: { name: 'Ada Lovelace', verifiedIndustry: false }, csrfToken: 'csrf-test', commentaryEnabled: false }],
+    [`GET /api/forecasts/${EPISODE_01}`]: [200, openCommunity()],
+    [`GET /api/forecasts/${EPISODE_01}/mine`]: [200, { current: null, history: [], score: null }],
+    'DELETE /api/account': [200, { deleted: true }],
+  });
+  const dialogs = [];
+  p.on('dialog', (dialog) => { dialogs.push(dialog.message()); dialog.accept(); });
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  await p.waitForFunction(() => !document.querySelector('#account-member').hidden);
+  await p.click('#delete-account');
+  await p.waitForFunction(() => document.querySelector('.reader-call').dataset.mode === 'guest');
+  assert.equal(dialogs.length, 1);
+  assert.match(dialogs[0], /forecasts stay in the Community Forecast without your name or email/);
+  assert.equal(calls.find(({ key }) => key === 'DELETE /api/account').headers['x-csrf-token'], 'csrf-test');
+  assert.equal(await p.$eval('#account-status', (node) => node.textContent), 'Your account was deleted.');
+  await p.close();
+});
+
+test('signed-in forecasting passes axe at mobile and desktop widths', async () => {
+  const axe = await readFile(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
+  for (const [width, height] of [[390, 844], [1366, 768]]) {
+    const p = await page(width, height);
+    const entry = { probability: 44, submittedAt: '2026-09-28T15:00:00.000Z' };
+    await mockForecastApi(p, {
+      'GET /api/session': [200, { authEnabled: true, authenticated: true, member: { name: 'Ada Lovelace', verifiedIndustry: false }, csrfToken: 'csrf-test', commentaryEnabled: false }],
+      [`GET /api/forecasts/${EPISODE_01}`]: [200, openCommunity({ forecasters: 14, community: { probability: 38 }, expert: [{ name: 'Guest Operator', role: 'Streaming executive', probability: 55, recordedAt: '2026-11-10T00:00:00.000Z' }] })],
+      [`GET /api/forecasts/${EPISODE_01}/mine`]: [200, { current: entry, history: [entry], score: null }],
+    });
+    await p.goto(origin, { waitUntil: 'networkidle0' });
+    await p.waitForFunction(() => !document.querySelector('#forecast-history').hidden);
+    await p.evaluate(() => { document.querySelector('#forecast-history').open = true; });
+    await p.evaluate(axe);
+    const violations = await p.evaluate(() => axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag22a', 'wcag22aa'] } }).then(({ violations }) => violations.map(({ id, nodes }) => ({ id, targets: nodes.map(({ target }) => target) }))));
+    assert.deepEqual(violations, [], `signed-in forecasting at ${width}x${height}`);
+    const small = await p.evaluate(() => [...document.querySelectorAll('.reader-call a, .reader-call button, .reader-call summary')]
+      .filter((node) => node.getClientRects().length)
+      .map((node) => ({ id: node.id || node.className, ...node.getBoundingClientRect().toJSON() }))
+      .filter(({ width: w, height: h }) => w < 43.5 || h < 43.5));
+    assert.deepEqual(small, [], `${width}px reader-call targets`);
+    await p.close();
+  }
+});
+
 test('timeline links land on their episode and open its forecast question', async () => {
   const p = await page(390, 844);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });

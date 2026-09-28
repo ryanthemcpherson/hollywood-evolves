@@ -160,13 +160,31 @@
     <p class="episode-kicker" id="question-01-label">The forecast question</p>
     <p class="editorial-question">Will at least three of Netflix, Disney+, HBO Max, Peacock, and Paramount+ report more U.S. subscribers on ad-supported plans than ad-free plans by December 31, 2029?</p>
     <div class="contract"><dl><div><dt>Threshold</dt><dd>Three named services report the crossover.</dd></div><div><dt>Deadline</dt><dd>December 31, 2029</dd></div><div><dt>Evidence</dt><dd>Company reporting and established trade reporting.</dd></div></dl></div>
+    <div class="community" id="community-forecast" role="region" aria-labelledby="community-title" hidden>
+      <h3 class="chapter-label" id="community-title">Community Forecast</h3>
+      <p class="community-value" id="community-value" aria-live="polite"></p>
+      <p class="community-detail" id="community-detail"></p>
+      <ul class="expert-list" id="expert-list" aria-label="Expert Alpha" hidden></ul>
+    </div>
   </article>
-  <aside class="reader-call" aria-labelledby="reader-call-title">
-    <p class="chapter-label" id="reader-call-title">Your forecast · this browser only</p>
+  <aside class="reader-call" aria-labelledby="reader-call-title" data-mode="local">
+    <p class="chapter-label" id="reader-call-title">Your forecast</p>
     <div class="probability"><label for="forecast-probability">How likely is YES?</label><output id="forecast-output" for="forecast-probability">Not set</output></div>
-    <input id="forecast-probability" type="range" min="0" max="100" step="1" value="50" aria-describedby="forecast-scale privacy-note">
-    <p class="probability-scale" id="forecast-scale"><span>0 · certain NO</span><span>100 · certain YES</span></p>
+    <input id="forecast-probability" type="range" min="1" max="99" step="1" value="50" aria-describedby="forecast-scale privacy-note">
+    <p class="probability-scale" id="forecast-scale"><span>1 · almost certainly NO</span><span>99 · almost certainly YES</span></p>
     <p id="privacy-note">Your forecast is saved only in this browser. It is not submitted, published, or counted in a Community Forecast.</p>
+    <div class="account" id="account-guest" hidden>
+      <a class="signin-action" id="signin-link" href="/auth/linkedin?return=%2F%23question-01">Sign in with LinkedIn to submit</a>
+      <p class="account-note">We store your LinkedIn name and email with your forecasts. The public sees only the Community Forecast, never your individual forecast.</p>
+      <p class="forecast-status" id="account-status" aria-live="polite"></p>
+    </div>
+    <div class="account" id="account-member" hidden>
+      <p class="account-name">Signed in as <strong id="member-name"></strong> <span class="account-badge">LinkedIn-authenticated</span></p>
+      <button class="submit-action" id="submit-forecast" type="button">Submit forecast</button>
+      <p class="forecast-status" id="forecast-status" aria-live="polite"></p>
+      <details class="forecast-history" id="forecast-history" hidden><summary>Your forecast history</summary><ol id="forecast-history-list"></ol></details>
+      <div class="account-actions"><button class="text-button" id="sign-out" type="button">Sign out</button><button class="text-button" id="delete-account" type="button">Delete account</button></div>
+    </div>
     <div class="reader-actions"><button class="text-button" id="reset-forecast" type="button">Clear my forecast</button><button class="text-button" id="share-forecast" type="button" aria-describedby="share-status">Share this question</button></div>
     <p id="share-status" aria-live="polite"></p>
     <div id="share-fallback" hidden><label for="share-url">Copy this URL</label><input id="share-url" type="url" readonly></div>
