@@ -282,7 +282,9 @@ test('authenticated commentary stays pending until a configured editor approves 
   t.after(() => rm(directory, { recursive: true, force: true }));
   const dataPath = join(directory, 'commentary.json');
   const secret = 'commentary-secret-with-at-least-32-characters';
-  const store = new CommentaryStore({ secret, now: () => '2026-08-30T20:00:00.000Z' });
+  // The spawned server validates sessions against the real clock, so the fixture must not drift into the past.
+  const fixtureNow = new Date().toISOString();
+  const store = new CommentaryStore({ secret, now: () => fixtureNow });
   store.upsertLinkedInMember({ sub: 'member-1', name: 'Ada Lovelace', picture: null, email: 'ada@example.com', emailVerified: true });
   const sessionFixture = store.createSession('member-1');
   await writeFile(dataPath, JSON.stringify(store.snapshot()));

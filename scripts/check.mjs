@@ -5,27 +5,42 @@ const html = read('index.html');
 const css = read('src/style.css');
 const js = read('src/main.js');
 const failures = [];
-const required = ['Hollywood', 'Operating System', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)'];
+const required = ['Hollywood', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'Act I — The Past', 'Act II — The Present', 'Act III — Future Synthesis', 'Expert Alpha', 'Community Forecast', 'Market Update', '1947 theatergoer', 'Complexity Tax', 'Synthetic Idol', 'Méliès', 'A Trip to the Moon', 'The Jazz Singer', 'Paramount', 'Dolby Atmos', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)', 'DEG’s 30th anniversary'];
 for (const term of required) if (!html.includes(term)) failures.push(`Missing required copy: ${term}`);
 
 const prohibited = /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i;
 if (prohibited.test(`${html}\n${js}`)) failures.push('Homepage or homepage JavaScript contains a prohibited state, fake value, or platform promise.');
 for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
-for (const id of ['top', 'past', 'present', 'forecast', 'season', 'host', 'method']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+for (const id of ['top', 'format', 'history', 'season', 'forecast', 'market', 'host']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+const milestones = [...html.matchAll(/<li><time datetime="(\d{4})">\1<\/time><p>[^\n]+?<\/p><a href="#([a-z0-9-]+)">Episode (\d{2}) · [^<]+<\/a><\/li>/g)];
+if (milestones.length !== 14) failures.push(`The timeline requires 14 dated milestones; found ${milestones.length}.`);
+for (const [, year, target, number] of milestones) {
+  if (!html.includes(`id="${target}"`)) failures.push(`Timeline milestone ${year} links to missing #${target}.`);
+  if (!target.endsWith(`-${number}`)) failures.push(`Timeline milestone ${year} labels Episode ${number} but links to #${target}.`);
+}
 if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
-if (!/<span class="operating-system">Operating System<\/span>/.test(html)) failures.push('Operating System must remain grouped.');
 const hero = html.match(/<section class="hero\b[\s\S]*?<\/section>/)?.[0] || '';
-if (/supply-instrument/.test(hero)) failures.push('Hero must not retain the supply instrument.');
-if (/<svg\b/.test(hero)) failures.push('Hero must not contain SVG.');
-if (!/<figure class="control-map"(?:\s|>)/.test(hero)) failures.push('Hero requires the semantic control map.');
-for (const term of ['Then', 'Studio', 'Release', 'Audience', 'Now', 'Production', 'Cloud', 'A one-way pipeline became a feedback system.']) if (!hero.includes(term)) failures.push(`Hero control map missing: ${term}`);
+if (!/<img src="\/art\/hero\.svg" alt=""/.test(hero)) failures.push('Hero requires the decorative projector illustration.');
+if (/<svg\b/.test(html)) failures.push('Illustrations must load as images, not inline SVG.');
+
+const brandColors = new Set(['#171715', '#F3EFE6', '#E5DED1', '#A8342A', '#78A9B5', '#625D55', '#FAF7F0']);
+const artFiles = ['hero.svg', 'chairs.svg', ...Array.from({ length: 8 }, (_, index) => `episode-0${index + 1}.svg`)];
+for (const file of artFiles) {
+  if (!html.includes(`src="/art/${file}"`)) failures.push(`Homepage must use /art/${file}.`);
+  if (!existsSync(`public/art/${file}`)) { failures.push(`Missing illustration: ${file}`); continue; }
+  const art = read(`public/art/${file}`);
+  if (/<script|<style|\sstyle\s*=|<image|href="(?:https?:|\/\/)/i.test(art)) failures.push(`${file} must be self-contained vector art without scripts, styles, or external references.`);
+  for (const [value] of art.matchAll(/#[0-9a-f]{6}\b/gi)) if (!brandColors.has(value.toUpperCase())) failures.push(`${file} uses off-brand color ${value}.`);
+}
+if ([...html.matchAll(/<img src="\/art\/[^"]+"([^>]*)>/g)].some(([, attributes]) => !/^\s*alt=""/.test(attributes))) failures.push('Illustrations are decorative and need empty alt text.');
+
 const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());
 if (questions.length !== 8 || new Set(questions).size !== 8) failures.push('Eight singular editorial questions are required.');
-if (/data-question-call|compact-call|name="question-0[1-8]-call"/.test(html) || /compact-call/.test(css) || js.includes('he-private-question-calls')) failures.push('The question pool must remain native disclosures without local voting controls or storage.');
-if ((html.match(/<details/g) || []).length !== 7) failures.push('Themes 02–08 require native disclosures.');
+if ((html.match(/<details/g) || []).length !== 7) failures.push('Episodes 02–08 require native disclosures.');
+if (/name="private-forecast"|data-question-call|compact-call/.test(html)) failures.push('Only the Episode 01 probability control may collect a local forecast.');
+if (!/<input id="forecast-probability" type="range" min="0" max="100" step="1"/.test(html)) failures.push('Episode 01 requires a 0–100 probability control.');
 if (!/--target:\s*44px/.test(css)) failures.push('The shared target minimum must be 44px.');
-if (!/@media\s*\(max-width:\s*700px\)[\s\S]*\.season-contract\s*\{[^}]*display:\s*none/.test(css)) failures.push('Enhanced mobile contracts must use progressive disclosure.');
-for (const term of ['localStorage', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) if (!js.includes(term)) failures.push(`Missing interaction contract: ${term}`);
+for (const term of ['localStorage', 'he-private-forecast', 'aria-valuetext', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) if (!js.includes(term)) failures.push(`Missing interaction contract: ${term}`);
 
 for (const metadata of ['rel="canonical"', 'name="twitter:title"', 'name="twitter:description"', 'name="twitter:image"', 'name="twitter:image:alt"', 'property="og:site_name"', 'property="og:locale"', 'name="color-scheme"', 'name="referrer"', 'rel="manifest"', 'rel="apple-touch-icon"', 'name="robots" content="noindex, nofollow"']) if (!html.includes(metadata)) failures.push(`Missing metadata: ${metadata}`);
 if (!/<main id="main" tabindex="-1">/.test(html)) failures.push('Main must receive skip-link focus.');
@@ -51,4 +66,4 @@ for (const term of ['he-private-forecast', 'localStorage', 'not sent to Hollywoo
 for (const term of ['not betting or gambling products', 'investment, legal, or business advice']) if (!read('public/terms.html').includes(term)) failures.push(`Terms page missing ${term}`);
 
 if (failures.length) { console.error(failures.join('\n')); process.exit(1); }
-console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 unique questions).`);
+console.log(`Content and implementation checks passed (${required.length} required-copy assertions; 8 unique questions; ${artFiles.length} illustrations).`);

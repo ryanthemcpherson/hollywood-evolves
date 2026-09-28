@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+<rect width="300" height="400" fill="#E5DED1"/>
+<path d="M150 112 L108 44 M150 112 L198 36" stroke="#171715" stroke-width="4"/>
+<circle cx="108" cy="44" r="5" fill="#171715"/><circle cx="198" cy="36" r="5" fill="#171715"/>
+<ellipse cx="150" cy="114" rx="24" ry="13" fill="#171715"/>
+<polygon points="72,286 86,286 66,340 54,340" fill="#171715"/><polygon points="214,286 228,286 246,340 234,340" fill="#171715"/>
+<rect x="40" y="112" width="220" height="178" rx="16" fill="#171715"/>
+<rect x="58" y="130" width="150" height="122" rx="22" fill="#F3EFE6"/>
+<circle cx="234" cy="160" r="11" fill="#E5DED1"/><path d="M234 160 L240 152" stroke="#171715" stroke-width="3"/>
+<circle cx="234" cy="198" r="11" fill="#E5DED1"/><path d="M234 198 L226 192" stroke="#171715" stroke-width="3"/>
+<rect x="222" y="228" width="24" height="3" fill="#625D55"/>
+<rect x="222" y="237" width="24" height="3" fill="#625D55"/>
+<rect x="222" y="246" width="24" height="3" fill="#625D55"/>
+<g transform="translate(128 196) rotate(-14)"><path d="M24 0 C42 -30 12 -50 -12 -44" fill="none" stroke="#171715" stroke-width="2"/><path d="M-46 -22 H22 L44 0 L22 22 H-46 Z" fill="#A8342A"/><circle cx="24" cy="0" r="5" fill="#F3EFE6"/></g>
+</svg>

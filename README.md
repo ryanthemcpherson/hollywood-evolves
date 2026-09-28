@@ -10,8 +10,8 @@ The historical product brief proposes that each episode explain a prior industry
 
 ## Current scope
 
-1. A responsive editorial website covering the program premise, Episode 01 question, eight editorial themes, host, and method.
-2. Browser-local `YES / NO` calls for the Episode 01 premise and theme questions; these choices are not submitted, published, or counted.
+1. A responsive editorial website that follows the executive brief: the series thesis, the three-act episode format, a dated timeline of the pivots each episode covers, the eight-episode Season One slate, the Episode 01 forecast, the Expert Alpha / Community Forecast / Market Update loop, and the host.
+2. A browser-local 0–100 probability forecast for the Episode 01 question; it is not submitted, published, or counted.
 3. A visible threshold, deadline, and evidence frame for each editorial question.
 4. Static accessibility, privacy, and terms pages.
 5. Fail-closed audience and commentary code whose public routes stay hidden until editorial and operational prerequisites are met.
@@ -51,11 +51,21 @@ Browser tests automatically discover Chrome or Edge on Windows and Chromium or C
 
 ### Homepage composition
 
-The homepage is a subject-first, segmented editorial scroll on one 12-column grid. Its opening names the Hollywood/media-technology shift, keeps “Operating System” together where the viewport supports it, and offers one primary route to the Episode 01 question. A code-built Then/Now control map carries the physical-to-cloud story without generated imagery or decorative motion: the one-way release pipeline (Studio → Release → Audience) above today’s feedback system (Production ↔ Cloud ↔ Audience), with an arrow legend (“→ one-way release”, “↔ live feedback”) and a serif thesis caption — “A one-way pipeline became a feedback system.” — sized to command the cover. The Episode 01 chapter leads with the measurable question itself: the formal contract sentence is the largest element, framed by a red “The measurable question.” kicker on the left and a small mono gloss (“When does the ad tier become the main tier?”) directly beneath it.
+The homepage is a segmented editorial scroll on one 12-column grid, ordered to match the executive brief:
 
-Ian McPherson's supplied portrait appears once, only in the host chapter. The Episode 01 chapter presents one measurable question with its threshold, deadline, evidence class, private browser-local `YES / NO` call, and canonical sharing. A concise eight-question editorial pool maps possible lines of inquiry without assigning an episode order; questions 02–08 are inspectable native details with no voting controls, and enhanced mobile reveals their contracts on demand. The Episode 01 call is never submitted, published, or counted.
+1. **Cover** — the brief's thesis ("Hollywood keeps reinventing itself. What happens next?"), the host-plus-two-guests promise, routes to the Episode 01 forecast and Season One, and the TMT Insights × DEG production credit marking DEG's 30th anniversary.
+2. **Format** — three director's chairs (host, historical guest, operating guest) above the brief's running order: Introduction (5 min), Act I — The Past, Act II — The Present, and Act III — Future Synthesis (10 min each). Bar widths stay proportional to minutes at every breakpoint.
+3. **History** — "Hollywood has done this before": fourteen dated milestones, seven for Act I (the past, 1902–1953) and seven for Act II (the present, 1995–2023), side by side on wide screens. Each links to the episode it anchors, and `npm run check` rejects a milestone whose link or episode label does not resolve.
+4. **Season One** — the brief's numbered slate, Episodes 01–08, each with a poster illustration, a then → now arc, the brief's synopsis, and its forecast question in a native disclosure (Episode 01 links to its chapter). On wide screens the cards share subgrid rows so titles, synopses, and question rows align.
+5. **Episode 01** — "When does the ad tier become the main tier?", the measurable question with threshold, deadline, and evidence, and a private 0–100 probability control with canonical sharing.
+6. **Prediction market** — Expert Alpha → Community Forecast → Market Update, framed as calibration rather than crowning winners.
+7. **Host** — Ian McPherson's supplied portrait, which appears once on the page.
 
-The interface progressively enhances its mobile menu, Episode 01 local choice, canonical sharing, and question fragments. With JavaScript disabled, primary navigation and all eight question contracts remain in reading order. Reduced-motion preferences retain static presentation, and forced-colors rules preserve focus and selected states.
+The illustrations in `public/art/` are original flat, cut-paper vector art in the brand palette, drawn as mid-century title-sequence and one-sheet posters so they read as editorial design rather than generated imagery. `scripts/build-art.mjs` is their source; edit it and run `npm run art`, then commit the regenerated SVGs. `npm run check` rejects art that contains scripts, styles, external references, or off-brand colors.
+
+The same script writes `public/brand/social-card.svg`: the cover thesis beside the projector art, with the canonical inverse wordmark embedded unchanged and no partnership claim. `npm run social-card` rasterizes it to the 1200×630 `social-card.png` with the local brand fonts loaded, and refuses to render if they fail to load.
+
+The interface progressively enhances its mobile menu, Episode 01 local forecast, canonical sharing, and question fragments. With JavaScript disabled, primary navigation and all eight question contracts remain in reading order. Reduced-motion preferences retain static presentation, and forced-colors rules preserve focus and selected states.
 
 The repository also includes an owned audience-signal intake for immutable question IDs: `/poll/<question-id>?src=<source>` and the compact `/?poll=<question-id>&src=<source>` form. Open questions use an accessible optional modal with explicit Yes/No, optional 1–99% confidence, one-response-per-browser safeguards, aggregate-only public results, source attribution, rate limits, idempotency, and an audit trail. Direct forecasts and LinkedIn reaction signals remain separate. Episode 01 is still `draft`; its poll route truthfully says it is not open and accepts no submissions. See `docs/audience-signal-intake.md` for the data model, LinkedIn permission boundary/manual CSV fallback, opening checklist, and deployment plan.
 
