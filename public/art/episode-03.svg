@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400" width="300" height="400">
+<rect width="300" height="400" fill="#A8342A"/>
+<polygon points="136,0 164,0 268,342 16,342" fill="#FAF7F0" opacity=".14"/>
+<ellipse cx="142" cy="342" rx="126" ry="24" fill="#FAF7F0" opacity=".18"/>
+<polygon points="142,154 163.7,216.1 229.5,217.6 177.2,257.4 196.1,320.4 142,283 87.9,320.4 106.8,257.4 54.5,217.6 120.3,216.1" fill="#FAF7F0"/>
+<polygon points="142,154 163.7,216.1 229.5,217.6 177.2,257.4 196.1,320.4 142,283 87.9,320.4 106.8,257.4 54.5,217.6 120.3,216.1" transform="translate(30 -34)" fill="none" stroke="#171715" stroke-width="3" stroke-dasharray="8 6"/>
+</svg>
