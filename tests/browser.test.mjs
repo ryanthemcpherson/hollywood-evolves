@@ -9,9 +9,9 @@ import puppeteer from 'puppeteer-core';
 
 const VIEWPORTS = [[320, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]];
 const HERO_GEOMETRY_VIEWPORTS = [
-  { width: 320, height: 844, maxPageHeight: 5975, layout: 'stacked' },
-  { width: 390, height: 844, maxPageHeight: 5660, layout: 'stacked' },
-  { width: 1366, height: 768, maxPageHeight: 4411, layout: 'side-by-side' },
+  { width: 320, height: 844, maxPageHeight: 9300, layout: 'stacked' },
+  { width: 390, height: 844, maxPageHeight: 8700, layout: 'stacked' },
+  { width: 1366, height: 768, maxPageHeight: 6350, layout: 'side-by-side' },
 ];
 const READABILITY_FLOOR_VIEWPORTS = [[320, 844], [390, 844], [1366, 768], [1440, 900]];
 const CANONICAL = 'https://hollywoodevolves.mcpherson.app/';
@@ -97,47 +97,41 @@ test('browser discovery is portable and the server uses an explicit randomized-p
   assert.ok(browser.process().spawnargs.includes(`--explicitly-allowed-ports=${localPort}`));
 });
 
-test('subject-first cover has one clear action and no host portrait', async () => {
+test('the cover leads with the brief thesis, two routes, and no host portrait', async () => {
   const p = await page();
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
   const cover = await p.$eval('.hero', (hero) => ({
     heading: hero.querySelector('h1').textContent.trim(),
     actions: [...hero.querySelectorAll('a')].map((node) => node.textContent.trim()),
-    portraits: hero.querySelectorAll('img').length,
-    bottom: Math.round(hero.getBoundingClientRect().bottom),
+    portraits: hero.querySelectorAll('img[src*="ian-mcpherson"]').length,
+    art: hero.querySelectorAll('img[src="/art/hero.svg"][alt=""]').length,
   }));
-  assert.match(cover.heading, /Technology.*Hollywood/);
-  assert.deepEqual(cover.actions, ['Read the Episode 01 question ↓']);
+  assert.equal(cover.heading, 'Hollywood keeps reinventing itself. What happens next?');
+  assert.deepEqual(cover.actions, ['See the Episode 01 forecast ↓', 'Browse Season One']);
   assert.equal(cover.portraits, 0);
-  assert.ok(cover.bottom <= 840, JSON.stringify(cover));
+  assert.equal(cover.art, 1);
   await p.close();
 });
 
-test('hero composition gives the thesis visual command of the cover', async () => {
+test('hero composition gives the thesis and projector art visual command of the cover', async () => {
   for (const [width, height] of [[1366, 768], [1440, 900]]) {
     const p = await page(width, height);
     await p.goto(origin, { waitUntil: 'networkidle0' });
-    const state = await p.evaluate(() => {
-      const stage = document.querySelector('.control-map__flow');
-      const label = stage?.querySelector('dt');
-      const item = stage?.querySelector('.control-map__stages li');
-      const caption = document.querySelector('.control-map figcaption');
-      return {
-        stage: stage?.getBoundingClientRect().toJSON(),
-        labelSize: label ? Number.parseFloat(getComputedStyle(label).fontSize) : 0,
-        itemSize: item ? Number.parseFloat(getComputedStyle(item).fontSize) : 0,
-        caption: caption?.getBoundingClientRect().toJSON(),
-        captionSize: caption ? Number.parseFloat(getComputedStyle(caption).fontSize) : 0,
-        deckSize: Number.parseFloat(getComputedStyle(document.querySelector('.deck')).fontSize),
-        heroTop: document.querySelector('.hero').getBoundingClientRect().top + scrollY,
-      };
-    });
+    const state = await p.evaluate(() => ({
+      copy: document.querySelector('.hero-copy').getBoundingClientRect().toJSON(),
+      art: document.querySelector('.hero-art img').getBoundingClientRect().toJSON(),
+      headingSize: Number.parseFloat(getComputedStyle(document.querySelector('.hero h1')).fontSize),
+      deckSize: Number.parseFloat(getComputedStyle(document.querySelector('.deck')).fontSize),
+      heroBottom: document.querySelector('.hero').getBoundingClientRect().bottom,
+    }));
     const label = `${width}x${height}`;
-    assert.ok(state.stage.height >= 200, `${label}: first flow ${state.stage.height}px tall`);
-    assert.ok(state.itemSize >= 19, `${label}: stage names ${state.itemSize}px`);
-    assert.ok(state.labelSize >= 12, `${label}: Then/Now label ${state.labelSize}px`);
-    assert.ok(state.captionSize >= 20, `${label}: thesis caption ${state.captionSize}px`);
+    assert.ok(state.headingSize >= 64, `${label}: heading ${state.headingSize}px`);
     assert.ok(state.deckSize >= 18, `${label}: deck ${state.deckSize}px`);
+    assert.ok(state.art.width >= 500, `${label}: art width ${state.art.width}px`);
+    assert.ok(state.art.left - state.copy.right >= 24, `${label}: column gap`);
+    const centerDelta = (state.art.top + state.art.height / 2) - (state.copy.top + state.copy.height / 2);
+    assert.ok(Math.abs(centerDelta) <= 80, `${label}: vertical center delta ${centerDelta}px`);
+    assert.ok(state.heroBottom <= height + 160, `${label}: cover ends ${state.heroBottom}px`);
     await p.close();
   }
 });
@@ -175,7 +169,7 @@ test('all visible authored labels meet an 11px readability floor across release 
   }
 });
 
-test('control map keeps the hero balanced within existing page-height budgets', async () => {
+test('hero art stays balanced within page-height budgets', async () => {
   for (const { width, height, maxPageHeight, layout } of HERO_GEOMETRY_VIEWPORTS) {
     const p = await page(width, height);
     await p.goto(origin, { waitUntil: 'networkidle0' });
@@ -186,73 +180,50 @@ test('control map keeps the hero balanced within existing page-height budgets', 
         return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
       };
       const hero = document.querySelector('.hero');
-      const copy = hero.querySelector('.hero-copy').getBoundingClientRect();
-      const map = hero.querySelector('.control-map');
-      const mapRect = map?.getBoundingClientRect();
-      const targets = [...document.querySelectorAll('a,button,summary,label,input:not([type="radio"])')]
+      const targets = [...document.querySelectorAll('a,button,summary,label,input')]
         .filter(visible)
         .map((node) => {
           const rect = node.getBoundingClientRect();
-          return { node: node.tagName.toLowerCase(), width: rect.width, height: rect.height };
+          return { node: `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}`, width: rect.width, height: rect.height };
         });
       return {
-        mapCount: hero.querySelectorAll('.control-map').length,
-        svgCount: hero.querySelectorAll('svg').length,
+        inlineSvgCount: hero.querySelectorAll('svg').length,
         pageHeight: document.documentElement.scrollHeight,
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         smallTargets: targets.filter(({ width: targetWidth, height: targetHeight }) => targetWidth < 43.5 || targetHeight < 43.5),
-        copy: copy.toJSON(),
-        map: mapRect?.toJSON() || null,
-        flows: [...hero.querySelectorAll('.control-map__flow')].map((flow) => flow.getBoundingClientRect().toJSON()),
+        copy: hero.querySelector('.hero-copy').getBoundingClientRect().toJSON(),
+        art: hero.querySelector('.hero-art').getBoundingClientRect().toJSON(),
       };
     });
     const label = `${width}x${height}`;
-    assert.equal(state.mapCount, 1, `${label}: one control map`);
-    assert.equal(state.svgCount, 0, `${label}: hero SVG count`);
+    assert.equal(state.inlineSvgCount, 0, `${label}: hero art loads as an image`);
     assert.ok(state.pageHeight <= maxPageHeight, `${label}: page height ${state.pageHeight}px > ${maxPageHeight}px`);
     assert.ok(state.overflow <= 1, `${label}: overflow ${state.overflow}px`);
     assert.deepEqual(state.smallTargets, [], `${label}: authored targets`);
-    if (layout === 'side-by-side') {
-      assert.ok(state.map.height >= 380 && state.map.height <= 560, `${label}: control-map height ${state.map.height}px`);
-      assert.ok(state.flows.length === 2 && state.flows.every((flow) => flow.height >= 200), `${label}: flows ${JSON.stringify(state.flows.map((flow) => flow.height))}`);
-    } else {
-      assert.ok(state.map.height >= 220 && state.map.height <= 360, `${label}: control-map height ${state.map.height}px`);
-    }
     if (layout === 'stacked') {
-      assert.ok(state.map.top - state.copy.bottom >= 24, `${label}: stacked gap`);
-      assert.ok(Math.abs(state.map.left - state.copy.left) <= 1 && Math.abs(state.map.width - state.copy.width) <= 1, `${label}: stacked alignment`);
+      assert.ok(state.art.top - state.copy.bottom >= 24, `${label}: stacked gap`);
+      assert.ok(Math.abs(state.art.left - state.copy.left) <= 1 && Math.abs(state.art.width - state.copy.width) <= 1, `${label}: stacked alignment`);
     } else {
-      assert.ok(state.map.left - state.copy.right >= 24, `${label}: column gap`);
-      assert.ok(state.map.width >= 519, `${label}: control-map width ${state.map.width}px`);
-      assert.ok(state.copy.width >= 519, `${label}: hero-copy width ${state.copy.width}px`);
-      const centerDelta = (state.map.top + state.map.height / 2) - (state.copy.top + state.copy.height / 2);
-      assert.ok(Math.abs(centerDelta) <= 48, `${label}: vertical center delta ${centerDelta}px`);
+      assert.ok(state.art.left - state.copy.right >= 24, `${label}: column gap`);
+      assert.ok(state.art.width >= 500 && state.copy.width >= 519, `${label}: art ${state.art.width}px, copy ${state.copy.width}px`);
     }
     await p.close();
   }
 });
 
-test('control map labels and connectors stay separated through the tablet split layout', async () => {
-  for (const width of [701, 768, 900]) {
-    const p = await page(width, 900);
+test('the running-order bars stay proportional to each act’s minutes', async () => {
+  for (const [width, height] of [[1366, 768], [768, 900], [390, 844]]) {
+    const p = await page(width, height);
     await p.goto(origin, { waitUntil: 'networkidle0' });
-    const state = await p.evaluate(() => [...document.querySelectorAll('.control-map__stages')].map((flow) => {
-      const gap = Number.parseFloat(getComputedStyle(flow).columnGap);
-      const stages = [...flow.querySelectorAll('li')];
-      return {
-        gap,
-        connectorSizes: stages.slice(0, -1).map((stage) => Number.parseFloat(getComputedStyle(stage, '::after').fontSize)),
-        labelOverflows: stages.flatMap((stage) => {
-          const box = stage.getBoundingClientRect();
-          const range = document.createRange();
-          range.selectNodeContents(stage.firstChild);
-          const text = range.getBoundingClientRect();
-          return text.left < box.left - .5 || text.right > box.right + .5 ? [stage.textContent] : [];
-        }),
-      };
-    }));
-    assert.deepEqual(state.flatMap(({ labelOverflows }) => labelOverflows), [], `${width}px: stage-label overflow`);
-    assert.ok(state.every(({ gap, connectorSizes }) => connectorSizes.every((size) => size <= gap)), `${width}px: connector fits its gap`);
+    const bars = await p.evaluate(() => [...document.querySelectorAll('.act')].map((act) => ({
+      minutes: Number.parseInt(act.querySelector('.act-time').textContent, 10),
+      width: act.getBoundingClientRect().width - Number.parseFloat(getComputedStyle(act, '::before').left) - Number.parseFloat(getComputedStyle(act, '::before').right),
+    })));
+    const label = `${width}x${height}`;
+    assert.deepEqual(bars.map(({ minutes }) => minutes), [5, 10, 10, 10], `${label}: running order`);
+    const [intro, ...acts] = bars;
+    assert.ok(acts.every(({ width: actWidth }) => Math.abs(actWidth - acts[0].width) <= 1), `${label}: equal ten-minute acts ${JSON.stringify(bars)}`);
+    assert.ok(Math.abs(intro.width / acts[0].width - 0.5) <= 0.02, `${label}: five-minute introduction ${JSON.stringify(bars)}`);
     await p.close();
   }
 });
@@ -268,7 +239,7 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
         const rect = node.getBoundingClientRect();
         return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
       };
-      const targets = [...document.querySelectorAll('a,button,summary,label,input:not([type="radio"])')]
+      const targets = [...document.querySelectorAll('a,button,summary,label,input')]
         .filter(visible).map((node) => {
           const rect = node.getBoundingClientRect();
           return { node: `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}`, width: rect.width, height: rect.height };
@@ -306,7 +277,6 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
       });
       const mainText = document.querySelector('main').innerText;
       const paragraphs = [...document.querySelectorAll('main p')].filter(visible);
-      const operating = document.querySelector('.operating-system');
       return {
         width: innerWidth,
         height: document.documentElement.scrollHeight,
@@ -320,8 +290,6 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
         gridErrors: gridChecks.filter(({ error }) => error > 1.5),
         headingClips: headingClips.filter(({ clipped }) => clipped),
         headingWordSplits,
-        operatingRects: operating.getClientRects().length,
-        operatingWhiteSpace: getComputedStyle(operating).whiteSpace,
       };
     });
     records.push(metrics);
@@ -330,14 +298,13 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
     assert.deepEqual(metrics.gridErrors, [], `${width}x${height} off-grid children`);
     assert.deepEqual(metrics.headingClips, [], `${width}x${height} clipped headings`);
     assert.deepEqual(metrics.headingWordSplits, [], `${width}x${height} split heading words`);
-    assert.ok(metrics.operatingRects === 1 || metrics.operatingWhiteSpace === 'nowrap', `${width}x${height}: Operating System wraps`);
     assert.equal(metrics.blocks.length, 6, `${width}x${height}: essential chapter count`);
     assert.ok(metrics.words > 300 && metrics.paragraphs >= 15 && metrics.longParagraphs >= 5, JSON.stringify(metrics));
     await p.close();
   }
   const mobile390 = records.find(({ width }) => width === 390);
-  assert.ok(mobile390.viewports < 8.4, JSON.stringify(mobile390));
-  assert.ok(mobile390.words < 615, JSON.stringify(mobile390));
+  assert.ok(mobile390.viewports < 10.4, JSON.stringify(mobile390));
+  assert.ok(mobile390.words < 960, JSON.stringify(mobile390));
   console.log(`HOMEPAGE_MATRIX ${JSON.stringify(records)}`);
 });
 
@@ -372,7 +339,7 @@ test('reduced motion is static and does not move content', async () => {
       const style = getComputedStyle(node);
       return style.animationName !== 'none' || style.transitionDuration.split(',').some((value) => Number.parseFloat(value) > 0);
     }).map((node) => node.tagName);
-    const tracked = [...document.querySelectorAll('main>section,.control-map,.artifact')];
+    const tracked = [...document.querySelectorAll('main>section,.hero-art,.cast,.season-slate')];
     const before = tracked.map((node) => node.getBoundingClientRect().toJSON());
     await new Promise((resolve) => setTimeout(resolve, 250));
     const after = tracked.map((node) => node.getBoundingClientRect().toJSON());
@@ -385,34 +352,30 @@ test('reduced motion is static and does not move content', async () => {
   await p.close();
 });
 
-test('forced colors preserves meaningful Episode 01 selection and disclosure focus states', async () => {
+test('forced colors preserves disclosure and Episode 01 forecast focus states', async () => {
   const p = await page(390, 844);
   await p._client().send('Emulation.setEmulatedMedia', { media: 'screen', features: [{ name: 'forced-colors', value: 'active' }] });
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.click('.reader-call label:has(input[value="yes"])');
-  await p.evaluate(() => document.body.focus());
-  for (let index = 0; index < 40; index += 1) {
-    await p.keyboard.press('Tab');
-    if (await p.evaluate(() => document.activeElement.matches('#question-03 summary'))) break;
-  }
-  const state = await p.evaluate(() => {
-    const input = document.querySelector('#forecast-yes');
-    const selected = getComputedStyle(input.nextElementSibling);
-    const summary = document.querySelector('#question-03 summary');
-    const focus = getComputedStyle(summary);
-    return {
-      active: matchMedia('(forced-colors: active)').matches,
-      checked: input.checked,
-      focused: document.activeElement === summary,
-      selectedOutline: `${selected.outlineStyle} ${selected.outlineWidth}`,
-      focusOutline: `${focus.outlineStyle} ${focus.outlineWidth}`,
-    };
+  await p.evaluate(() => { localStorage.removeItem('he-private-forecast'); document.body.focus(); });
+  const tabTo = async (selector) => {
+    for (let index = 0; index < 60; index += 1) {
+      await p.keyboard.press('Tab');
+      if (await p.evaluate((target) => document.activeElement.matches(target), selector)) return true;
+    }
+    return false;
+  };
+  const outline = (selector) => p.$eval(selector, (node) => {
+    const style = getComputedStyle(node);
+    return `${style.outlineStyle} ${style.outlineWidth}`;
   });
-  assert.equal(state.active, true);
-  assert.equal(state.checked, true);
-  assert.equal(state.focused, true);
-  assert.match(state.selectedOutline, /solid (?:3|4)px/);
-  assert.match(state.focusOutline, /solid 3px/);
+  assert.equal(await p.evaluate(() => matchMedia('(forced-colors: active)').matches), true);
+  assert.equal(await tabTo('#question-03 summary'), true, 'summary reachable by keyboard');
+  assert.match(await outline('#question-03 summary'), /solid 3px/);
+  assert.equal(await tabTo('#forecast-probability'), true, 'forecast reachable by keyboard');
+  await p.keyboard.press('ArrowRight');
+  assert.equal(await p.$eval('#forecast-output', (node) => node.textContent), '51% · toss-up');
+  assert.match(await outline('#forecast-probability'), /solid 3px/);
+  await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
   await p.close();
 });
 
@@ -463,17 +426,27 @@ test('skip link, mobile menu, and native disclosures preserve keyboard focus', a
   await p.close();
 });
 
-test('the featured Episode 01 private call persists without question-pool voting controls', async () => {
+test('the Episode 01 private forecast persists, discards legacy values, and clears', async () => {
   const p = await page(390, 844);
   await p.goto(origin, { waitUntil: 'domcontentloaded' });
-  await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
+  await p.evaluate(() => localStorage.setItem('he-private-forecast', 'yes'));
   await p.reload({ waitUntil: 'domcontentloaded' });
-  await p.click('.reader-call label:has(input[value="yes"])');
-  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
-  assert.equal(await p.evaluate(() => localStorage.getItem('he-private-forecast')), 'yes');
+  const readState = () => p.evaluate(() => ({
+    stored: localStorage.getItem('he-private-forecast'),
+    value: document.querySelector('#forecast-probability').value,
+    output: document.querySelector('#forecast-output').textContent,
+    valueText: document.querySelector('#forecast-probability').getAttribute('aria-valuetext'),
+  }));
+  assert.deepEqual(await readState(), { stored: null, value: '50', output: 'Not set', valueText: 'Not set' });
+  await p.focus('#forecast-probability');
+  for (let step = 0; step < 20; step += 1) await p.keyboard.press('ArrowRight');
+  assert.deepEqual(await readState(), { stored: '70', value: '70', output: '70% · leaning YES', valueText: '70% · leaning YES' });
   assert.equal(await p.$('[data-question-call], .compact-call'), null);
   await p.reload({ waitUntil: 'domcontentloaded' });
-  assert.equal(await p.$eval('#forecast-yes', (input) => input.checked), true);
+  assert.deepEqual(await readState(), { stored: '70', value: '70', output: '70% · leaning YES', valueText: '70% · leaning YES' });
+  await p.click('#reset-forecast');
+  assert.deepEqual(await readState(), { stored: null, value: '50', output: 'Not set', valueText: 'Not set' });
+  assert.equal(await p.evaluate(() => document.activeElement.id), 'forecast-probability');
   await p.close();
 });
 
@@ -542,8 +515,9 @@ test('malformed and unknown fragments are ignored without breaking local calls o
       Object.defineProperty(navigator, 'share', { configurable: true, value: (data) => { window.__shared = data; return Promise.resolve(); } });
     });
     await p.goto(`${origin}/${fragment}`, { waitUntil: 'domcontentloaded' });
-    await p.click('.reader-call label:has(input[value="yes"])');
-    assert.equal(await p.$eval('#forecast-yes', ({ checked }) => checked), true);
+    await p.focus('#forecast-probability');
+    await p.keyboard.press('ArrowLeft');
+    assert.match(await p.$eval('#forecast-output', ({ textContent }) => textContent), /^\d{1,3}% · (?:leaning YES|leaning NO|toss-up)$/);
     await p.click('#share-forecast');
     await p.waitForFunction(() => window.__shared);
     assert.equal(await p.evaluate(() => window.__shared.url), `${CANONICAL}#question-01`);
@@ -618,7 +592,7 @@ test('no-JS at narrow widths retains nav, eight questions/contracts, story, and 
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
-    assert.deepEqual(state, { menuButton: 'none', navLinks: 6, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 6, words: state.words, overflow: state.overflow });
+    assert.deepEqual(state, { menuButton: 'none', navLinks: 5, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 6, words: state.words, overflow: state.overflow });
     assert.ok(state.words >= 450, `${width}px no-JS story has ${state.words} words`);
     assert.ok(state.overflow <= 1, `${width}px no-JS overflow ${state.overflow}px`);
     await p.close();

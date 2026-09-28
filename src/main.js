@@ -27,16 +27,43 @@ const storage = {
   remove(key) { try { localStorage.removeItem(key); } catch { /* No dependent state. */ } },
 };
 
-const forecastChoices = [...document.querySelectorAll('input[name="private-forecast"]')];
-const storedForecast = storage.get('he-private-forecast');
-if (storedForecast === 'yes' || storedForecast === 'no') {
-  forecastChoices.find(({ value }) => value === storedForecast).checked = true;
-} else if (storedForecast !== null) storage.remove('he-private-forecast');
-forecastChoices.forEach((choice) => choice.addEventListener('change', () => storage.set('he-private-forecast', choice.value)));
+const forecastKey = 'he-private-forecast';
+const readerCall = document.querySelector('.reader-call');
+const probabilityInput = document.querySelector('#forecast-probability');
+const probabilityOutput = document.querySelector('#forecast-output');
+function parseProbability(raw) {
+  if (typeof raw !== 'string' || !/^\d{1,3}$/.test(raw)) return null;
+  const value = Number(raw);
+  return value <= 100 ? value : null;
+}
+function describeProbability(value) {
+  if (value === null) return 'Not set';
+  if (value >= 60) return `${value}% · leaning YES`;
+  if (value <= 40) return `${value}% · leaning NO`;
+  return `${value}% · toss-up`;
+}
+function showProbability(value) {
+  const description = describeProbability(value);
+  readerCall?.classList.toggle('is-unset', value === null);
+  if (probabilityOutput) probabilityOutput.textContent = description;
+  probabilityInput?.setAttribute('aria-valuetext', description);
+}
+const storedForecast = storage.get(forecastKey);
+const storedProbability = parseProbability(storedForecast);
+if (storedProbability === null && storedForecast !== null) storage.remove(forecastKey);
+if (probabilityInput && storedProbability !== null) probabilityInput.value = String(storedProbability);
+showProbability(storedProbability);
+probabilityInput?.addEventListener('input', () => {
+  const value = parseProbability(probabilityInput.value);
+  if (value === null) return;
+  storage.set(forecastKey, String(value));
+  showProbability(value);
+});
 document.querySelector('#reset-forecast')?.addEventListener('click', () => {
-  forecastChoices.forEach((choice) => { choice.checked = false; });
-  storage.remove('he-private-forecast');
-  forecastChoices[0]?.focus();
+  storage.remove(forecastKey);
+  if (probabilityInput) probabilityInput.value = '50';
+  showProbability(null);
+  probabilityInput?.focus();
 });
 
 const disclosures = [...document.querySelectorAll('.season-slate details')];
@@ -87,7 +114,7 @@ function canonicalShareUrl() {
     const canonical = document.querySelector('link[rel="canonical"]')?.href;
     const url = new URL(canonical || location.href, location.href);
     const fragmentTarget = fragmentElement();
-    const currentQuestion = fragmentTarget?.matches('#question-01.question-block, .season-slate > li[id]') ? fragmentTarget.id : null;
+    const currentQuestion = fragmentTarget?.matches('#question-01.question-block, .season-slate > li[id^="question-"]') ? fragmentTarget.id : null;
     const latestOpenQuestion = disclosures.findLast(({ open }) => open)?.closest('li[id]')?.id;
     url.hash = currentQuestion || latestOpenQuestion || 'question-01';
     return url.href;
