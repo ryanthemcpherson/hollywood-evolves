@@ -5,19 +5,21 @@ import test from 'node:test';
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('homepage publishes only the editorial experience that exists', async () => {
-  const [html, js] = await Promise.all([read('index.html'), read('src/main.js')]);
+  const [html, main, forecasting] = await Promise.all([read('index.html'), read('src/main.js'), read('src/forecasting.js')]);
+  const js = `${main}\n${forecasting}`;
   assert.doesNotMatch(`${html}\n${js}`, /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i);
   assert.doesNotMatch(html, /data-demo|hero-dock|data-instrument-rotation|class="ledger"/);
   assert.match(html, /Episode 01/);
   assert.match(html, /December 31, 2029/);
-  assert.match(html, /Your forecast · this browser only/);
+  assert.match(html, /<p class="chapter-label" id="reader-call-title">Your forecast<\/p>/);
   assert.match(html, /rel="canonical"/);
   assert.match(js, /localStorage/);
 });
 
 test('homepage uses one Season One slate and complete question contracts', async () => {
   const html = await read('index.html');
-  assert.equal((html.match(/<details/g) || []).length, 7);
+  const season = html.match(/<section class="season chapter"[\s\S]*?<\/section>/)?.[0] || '';
+  assert.equal((season.match(/<details/g) || []).length, 7);
   assert.equal((html.match(/class="editorial-question"/g) || []).length, 8);
   assert.equal((html.match(/<dt>Threshold<\/dt>/g) || []).length, 8);
   assert.equal((html.match(/<dt>Deadline<\/dt>/g) || []).length, 8);

@@ -185,7 +185,9 @@ function animation() {
 }
 
 // Hero — one projector beam, and the screen it lands on keeps changing shape.
-// Drawn on a 760×600 canvas; the social card reuses the same body.
+// Drawn on a 760×600 canvas; the social card reuses the same body. The hero-* groups
+// are animated by src/style.css when the page inlines this drawing. Every aspect-ratio
+// frame and the red screen share one centre, (600, 299), so the screen can scale onto each.
 function heroBody() {
   const reel = (cx, cy, radius) => {
     const holes = Array.from({ length: 5 }, (_, index) => {
@@ -197,12 +199,11 @@ function heroBody() {
   const motes = [[340, 286, 1.6], [372, 262, 1.1], [410, 318, 2], [446, 240, 1.3], [468, 350, 1.5], [396, 300, 1], [520, 196, 1.8], [540, 404, 1.2], [590, 150, 1.4], [612, 452, 1.7], [660, 214, 1.1], [690, 390, 1.5], [482, 286, 1]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${color.white}" opacity=".45"/>`);
   return [
-    `<polygon points="292,278 292,302 760,560 760,40" fill="${color.white}" opacity=".07"/>`,
-    `<polygon points="292,284 292,296 760,430 760,170" fill="${color.white}" opacity=".08"/>`,
-    ...motes,
+    `<g class="hero-beam"><polygon points="292,278 292,302 760,560 760,40" fill="${color.white}" opacity=".07"/><polygon points="292,284 292,296 760,430 760,170" fill="${color.white}" opacity=".08"/></g>`,
+    `<g class="hero-motes">${motes.join('')}</g>`,
     `<path d="M96 150 L126 250 M204 116 L176 250" stroke="${color.muted}" stroke-width="7"/>`,
-    reel(96, 150, 64),
-    reel(204, 116, 52),
+    `<g class="hero-reel">${reel(96, 150, 64)}</g>`,
+    `<g class="hero-reel hero-reel--rear">${reel(204, 116, 52)}</g>`,
     `<rect x="66" y="246" width="176" height="94" fill="${color.muted}"/>`,
     `<rect x="84" y="264" width="44" height="8" fill="${color.ink}"/><rect x="84" y="280" width="44" height="8" fill="${color.ink}"/>`,
     `<circle cx="206" cy="304" r="12" fill="${color.ink}"/>`,
@@ -211,13 +212,22 @@ function heroBody() {
     `<rect x="455" y="238" width="290" height="122" fill="none" stroke="${color.red}" stroke-width="3"/>`,
     `<rect x="472" y="227" width="256" height="144" fill="none" stroke="${color.blue}" stroke-width="2"/>`,
     `<rect x="510" y="234" width="180" height="131" fill="none" stroke="${color.alt}" stroke-width="2"/>`,
-    `<rect x="562" y="228" width="80" height="142" fill="${color.red}"/>`,
-    `<rect x="570" y="236" width="64" height="126" fill="none" stroke="${color.white}" stroke-width="1.5" opacity=".6"/>`,
+    `<g class="hero-screen"><rect x="560" y="228" width="80" height="142" fill="${color.red}"/><rect x="568" y="236" width="64" height="126" fill="none" stroke="${color.white}" stroke-width="1.5" opacity=".6" vector-effect="non-scaling-stroke"/></g>`,
   ].join('\n');
 }
 
 function hero() {
   return svg(760, 600, heroBody());
+}
+
+// The homepage inlines the hero so page CSS can animate it and pause it; keep that copy generated.
+function inlineHeroIntoHomepage() {
+  const indexUrl = new URL('../index.html', import.meta.url);
+  const index = readFileSync(indexUrl, 'utf8');
+  const pattern = /<!-- hero-art:start -->[\s\S]*?<!-- hero-art:end -->/;
+  if (!pattern.test(index)) throw new Error('index.html is missing the <!-- hero-art:start/end --> markers.');
+  const inline = `<svg class="hero-illustration" viewBox="0 0 760 600" width="760" height="600" aria-hidden="true" focusable="false">\n${heroBody()}\n</svg>`;
+  writeFileSync(indexUrl, index.replace(pattern, () => `<!-- hero-art:start -->${inline}<!-- hero-art:end -->`));
 }
 
 // Social card — the thesis beside the projector, with the canonical inverse wordmark embedded unchanged.
@@ -245,12 +255,15 @@ ${wordmark}
 // Format — three director's chairs: host, historical guest, operating guest.
 function chairs() {
   const chair = (cx, canvas) => [
-    `<rect x="${cx - 70}" y="10" width="10" height="142" fill="${color.ink}"/><rect x="${cx + 60}" y="10" width="10" height="142" fill="${color.ink}"/>`,
+    `<ellipse cx="${cx}" cy="254" rx="86" ry="5" fill="${color.ink}" opacity=".12"/>`,
+    `<rect x="${cx - 70}" y="8" width="10" height="144" rx="3" fill="${color.ink}"/><rect x="${cx + 60}" y="8" width="10" height="144" rx="3" fill="${color.ink}"/>`,
     `<rect x="${cx - 62}" y="20" width="124" height="56" fill="${canvas}"/>`,
-    `<rect x="${cx - 82}" y="104" width="164" height="9" fill="${color.ink}"/>`,
-    `<rect x="${cx - 66}" y="134" width="132" height="18" fill="${canvas}"/>`,
+    `<path d="M${cx - 62} 25 H${cx + 62} M${cx - 62} 71 H${cx + 62}" stroke="${color.ink}" stroke-width="1.5" stroke-dasharray="4 3" opacity=".22"/>`,
+    `<rect x="${cx - 86}" y="102" width="172" height="10" rx="5" fill="${color.ink}"/>`,
+    `<path d="M${cx - 66} 134 H${cx + 66} V152 Q${cx} 159 ${cx - 66} 152 Z" fill="${canvas}"/>`,
     `<path d="M${cx - 58} 152 L${cx + 58} 244 M${cx + 58} 152 L${cx - 58} 244" stroke="${color.ink}" stroke-width="9"/>`,
-    `<rect x="${cx - 74}" y="242" width="148" height="8" fill="${color.ink}"/>`,
+    `<circle cx="${cx}" cy="198" r="3.5" fill="${color.paper}"/>`,
+    `<rect x="${cx - 74}" y="242" width="148" height="8" rx="2" fill="${color.ink}"/>`,
   ].join('');
   return svg(900, 260, [chair(150, color.red), chair(450, color.muted), chair(750, color.blue)].join('\n'));
 }
@@ -272,4 +285,5 @@ const directory = new URL('../public/art/', import.meta.url);
 mkdirSync(directory, { recursive: true });
 for (const [name, markup] of Object.entries(outputs)) writeFileSync(new URL(name, directory), markup);
 writeFileSync(new URL('../public/brand/social-card.svg', import.meta.url), socialCard());
-console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/ and the social card source to public/brand/.`);
+inlineHeroIntoHomepage();
+console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/, the social card source to public/brand/, and the inline hero in index.html.`);

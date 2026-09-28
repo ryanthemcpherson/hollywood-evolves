@@ -21,7 +21,7 @@ test('the cover states the executive brief thesis and production credit', async 
   assert.match(text(hero), /tools, talent, and business models have repeatedly reinvented themselves/);
   assert.match(text(hero), /Produced by TMT Insights in partnership with the Digital Entertainment Group, marking DEG’s 30th anniversary\./);
   assert.match(hero, /<a class="primary-action" href="#forecast">/);
-  assert.match(hero, /<img src="\/art\/hero\.svg" alt=""/);
+  assert.match(hero, /<svg class="hero-illustration" viewBox="0 0 760 600" width="760" height="600" aria-hidden="true" focusable="false">/);
   assert.doesNotMatch(hero, /ian-mcpherson/);
 });
 
@@ -107,16 +107,21 @@ test('each editorial question appears once with a complete contract', async () =
   for (let number = 2; number <= 8; number += 1) assert.match(html, new RegExp(`<li class="episode" id="question-0${number}">`));
 });
 
-test('the Episode 01 chapter pairs the measurable question with a private probability forecast', async () => {
+test('the Episode 01 chapter pairs the question with a local forecast that sign-in can submit', async () => {
   const html = await read('index.html');
   const chapter = section(html, 'forecast chapter');
   assert.ok(chapter, 'forecast chapter exists');
   assert.match(chapter, /<h2 id="forecast-title">When does the ad tier become the main tier\?<\/h2>/);
   assert.match(chapter, /<article class="question-block" id="question-01"/);
   assert.match(chapter, /Will at least three of Netflix, Disney\+, HBO Max, Peacock, and Paramount\+ report more U\.S\. subscribers/);
-  assert.match(chapter, /<input id="forecast-probability" type="range" min="0" max="100" step="1" value="50"/);
+  assert.match(chapter, /<input id="forecast-probability" type="range" min="1" max="99" step="1" value="50"/);
   assert.match(chapter, /<output id="forecast-output" for="forecast-probability">Not set<\/output>/);
+  assert.match(chapter, /<aside class="reader-call" aria-labelledby="reader-call-title" data-mode="local">/);
   assert.match(text(chapter), /not submitted, published, or counted in a Community Forecast/);
+  // Account and aggregate UI stay hidden until the server confirms sign-in is enabled.
+  for (const id of ['community-forecast', 'account-guest', 'account-member']) assert.match(chapter, new RegExp(`id="${id}"[^>]*hidden`));
+  assert.match(chapter, /<a class="signin-action" id="signin-link" href="\/auth\/linkedin\?return=%2F%23question-01">Sign in with LinkedIn to submit<\/a>/);
+  assert.match(text(chapter), /The public sees only the Community Forecast, never your individual forecast\./);
   assert.doesNotMatch(chapter, /type="radio"/);
 });
 
@@ -140,20 +145,44 @@ test('illustrations are original, self-contained, brand-colored vector art', asy
   }
 });
 
-test('mobile contract keeps authored targets at 44px, native disclosures, and no motion', async () => {
+test('only the hero drawing moves, it can be paused, and reduced motion keeps it still', async () => {
+  const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
+  const opener = '@media(prefers-reduced-motion:no-preference){';
+  const start = css.indexOf(opener);
+  assert.ok(start >= 0, 'motion lives in a no-preference media block');
+  let depth = 0;
+  let end = start;
+  for (let index = start + opener.length - 1; index < css.length; index += 1) {
+    if (css[index] === '{') depth += 1;
+    if (css[index] === '}' && --depth === 0) { end = index + 1; break; }
+  }
+  const motion = css.slice(start, end);
+  const staticCss = css.slice(0, start) + css.slice(end);
+  assert.doesNotMatch(staticCss, /@keyframes|animation\s*:|transition\s*:/);
+  const animated = [...motion.slice(opener.length, -1).matchAll(/(?:^|\})\s*([^{}@]+)\{[^{}]*animation:/g)].map(([, selector]) => selector.trim());
+  assert.deepEqual(animated, ['.hero-reel', '.hero-beam', '.hero-motes', '.hero-screen']);
+  assert.match(motion, /\.hero-art:has\(#hero-motion-pause:checked\) :is\(\.hero-reel,\.hero-beam,\.hero-motes,\.hero-screen\)\{animation-play-state:paused\}/);
+  assert.match(css, /@media\(prefers-reduced-motion:reduce\)\{[^@]*\.motion-toggle\{display:none\}/);
+  assert.match(html, /<label class="motion-toggle"><input type="checkbox" id="hero-motion-pause"><span>Pause animation<\/span><\/label>/);
+  for (const group of ['hero-beam', 'hero-motes', 'hero-reel', 'hero-reel hero-reel--rear', 'hero-screen']) assert.match(html, new RegExp(`<g class="${group}">`));
+});
+
+test('mobile contract keeps authored targets at 44px and native disclosures', async () => {
   const [html, css] = await Promise.all([read('index.html'), read('src/style.css')]);
   assert.doesNotMatch(html, /data-question-call|compact-call|question-0[1-8]-call/);
   assert.match(css, /--target:\s*44px/);
-  assert.doesNotMatch(css, /@keyframes|animation\s*:|transition\s*:/);
   assert.match(css, /\.season-slate summary::after\s*\{[^}]*content:\s*"\+"/);
   assert.match(css, /\.season-slate details\[open\]>summary::after\s*\{[^}]*content:\s*"−"/);
   assert.match(css, /\.probability label\{[^}]*min-height:var\(--target\)/);
 });
 
 test('forecast, canonical share, native details, and keyboard code remain', async () => {
-  const [html, js] = await Promise.all([read('index.html'), read('src/main.js')]);
+  const [html, main, forecasting] = await Promise.all([read('index.html'), read('src/main.js'), read('src/forecasting.js')]);
+  const js = `${main}\n${forecasting}`;
+  assert.match(main, /import \{ initForecasting \} from '\.\/forecasting\.js';/);
   assert.match(html, /rel="canonical"/);
-  assert.equal((html.match(/<details/g) || []).length, 7);
+  assert.equal((section(html, 'season chapter').match(/<details/g) || []).length, 7);
+  assert.equal((html.match(/<details/g) || []).length, 8, 'seven question disclosures plus the member forecast history');
   for (const term of ['localStorage', 'he-private-forecast', 'aria-valuetext', 'navigator.share', 'navigator.clipboard', "event.key === 'Escape'"]) {
     assert.ok(js.includes(term), term);
   }
