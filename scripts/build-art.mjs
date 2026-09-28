@@ -185,7 +185,9 @@ function animation() {
 }
 
 // Hero — one projector beam, and the screen it lands on keeps changing shape.
-// Drawn on a 760×600 canvas; the social card reuses the same body.
+// Drawn on a 760×600 canvas; the social card reuses the same body. The hero-* groups
+// are animated by src/style.css when the page inlines this drawing. Every aspect-ratio
+// frame and the red screen share one centre, (600, 299), so the screen can scale onto each.
 function heroBody() {
   const reel = (cx, cy, radius) => {
     const holes = Array.from({ length: 5 }, (_, index) => {
@@ -197,12 +199,11 @@ function heroBody() {
   const motes = [[340, 286, 1.6], [372, 262, 1.1], [410, 318, 2], [446, 240, 1.3], [468, 350, 1.5], [396, 300, 1], [520, 196, 1.8], [540, 404, 1.2], [590, 150, 1.4], [612, 452, 1.7], [660, 214, 1.1], [690, 390, 1.5], [482, 286, 1]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${color.white}" opacity=".45"/>`);
   return [
-    `<polygon points="292,278 292,302 760,560 760,40" fill="${color.white}" opacity=".07"/>`,
-    `<polygon points="292,284 292,296 760,430 760,170" fill="${color.white}" opacity=".08"/>`,
-    ...motes,
+    `<g class="hero-beam"><polygon points="292,278 292,302 760,560 760,40" fill="${color.white}" opacity=".07"/><polygon points="292,284 292,296 760,430 760,170" fill="${color.white}" opacity=".08"/></g>`,
+    `<g class="hero-motes">${motes.join('')}</g>`,
     `<path d="M96 150 L126 250 M204 116 L176 250" stroke="${color.muted}" stroke-width="7"/>`,
-    reel(96, 150, 64),
-    reel(204, 116, 52),
+    `<g class="hero-reel">${reel(96, 150, 64)}</g>`,
+    `<g class="hero-reel hero-reel--rear">${reel(204, 116, 52)}</g>`,
     `<rect x="66" y="246" width="176" height="94" fill="${color.muted}"/>`,
     `<rect x="84" y="264" width="44" height="8" fill="${color.ink}"/><rect x="84" y="280" width="44" height="8" fill="${color.ink}"/>`,
     `<circle cx="206" cy="304" r="12" fill="${color.ink}"/>`,
@@ -211,13 +212,22 @@ function heroBody() {
     `<rect x="455" y="238" width="290" height="122" fill="none" stroke="${color.red}" stroke-width="3"/>`,
     `<rect x="472" y="227" width="256" height="144" fill="none" stroke="${color.blue}" stroke-width="2"/>`,
     `<rect x="510" y="234" width="180" height="131" fill="none" stroke="${color.alt}" stroke-width="2"/>`,
-    `<rect x="562" y="228" width="80" height="142" fill="${color.red}"/>`,
-    `<rect x="570" y="236" width="64" height="126" fill="none" stroke="${color.white}" stroke-width="1.5" opacity=".6"/>`,
+    `<g class="hero-screen"><rect x="560" y="228" width="80" height="142" fill="${color.red}"/><rect x="568" y="236" width="64" height="126" fill="none" stroke="${color.white}" stroke-width="1.5" opacity=".6" vector-effect="non-scaling-stroke"/></g>`,
   ].join('\n');
 }
 
 function hero() {
   return svg(760, 600, heroBody());
+}
+
+// The homepage inlines the hero so page CSS can animate it and pause it; keep that copy generated.
+function inlineHeroIntoHomepage() {
+  const indexUrl = new URL('../index.html', import.meta.url);
+  const index = readFileSync(indexUrl, 'utf8');
+  const pattern = /<!-- hero-art:start -->[\s\S]*?<!-- hero-art:end -->/;
+  if (!pattern.test(index)) throw new Error('index.html is missing the <!-- hero-art:start/end --> markers.');
+  const inline = `<svg class="hero-illustration" viewBox="0 0 760 600" width="760" height="600" aria-hidden="true" focusable="false">\n${heroBody()}\n</svg>`;
+  writeFileSync(indexUrl, index.replace(pattern, () => `<!-- hero-art:start -->${inline}<!-- hero-art:end -->`));
 }
 
 // Social card — the thesis beside the projector, with the canonical inverse wordmark embedded unchanged.
@@ -275,4 +285,5 @@ const directory = new URL('../public/art/', import.meta.url);
 mkdirSync(directory, { recursive: true });
 for (const [name, markup] of Object.entries(outputs)) writeFileSync(new URL(name, directory), markup);
 writeFileSync(new URL('../public/brand/social-card.svg', import.meta.url), socialCard());
-console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/ and the social card source to public/brand/.`);
+inlineHeroIntoHomepage();
+console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/, the social card source to public/brand/, and the inline hero in index.html.`);

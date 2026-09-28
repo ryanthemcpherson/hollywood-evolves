@@ -10,7 +10,24 @@ for (const term of required) if (!html.includes(term)) failures.push(`Missing re
 
 const prohibited = /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i;
 if (prohibited.test(`${html}\n${js}`)) failures.push('Homepage or homepage JavaScript contains a prohibited state, fake value, or platform promise.');
-for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
+// Motion is allowed only inside the reduced-motion-safe block, and only on the hero drawing.
+function withoutBlock(source, opener) {
+  const start = source.indexOf(opener);
+  if (start < 0) return { rest: source, block: '' };
+  let depth = 0;
+  for (let index = start + opener.length - 1; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1;
+    if (source[index] === '}' && --depth === 0) return { rest: source.slice(0, start) + source.slice(index + 1), block: source.slice(start, index + 1) };
+  }
+  return { rest: source, block: '' };
+}
+const { rest: staticCss, block: motionCss } = withoutBlock(css, '@media(prefers-reduced-motion:no-preference){');
+for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /transition\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${staticCss}`)) failures.push(`Forbidden homepage pattern outside reduced-motion-safe CSS: ${pattern}`);
+const motionRules = motionCss.slice(motionCss.indexOf('{') + 1, -1);
+if (!/animation:/.test(motionRules)) failures.push('Expected the hero animation rules inside the reduced-motion-safe block.');
+for (const [, selector] of motionRules.matchAll(/(?:^|\})\s*([^{}@]+)\{[^{}]*animation:/g)) if (!/^\.hero-(?:reel|beam|motes|screen)(?:--rear)?$/.test(selector.trim())) failures.push(`Only the hero drawing may animate; found ${selector.trim()}.`);
+if (!motionCss.includes(':has(#hero-motion-pause:checked)') || !motionCss.includes('animation-play-state:paused')) failures.push('Hero motion requires the pause control.');
+if (!/<label class="motion-toggle"><input type="checkbox" id="hero-motion-pause"><span>Pause animation<\/span><\/label>/.test(html)) failures.push('Hero motion requires a visible Pause animation control.');
 for (const id of ['top', 'format', 'history', 'season', 'forecast', 'market', 'host']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
 const milestones = [...html.matchAll(/<li><time datetime="(\d{4})">\1<\/time><p>[^\n]+?<\/p><a href="#([a-z0-9-]+)">Episode (\d{2}) · [^<]+<\/a><\/li>/g)];
 if (milestones.length !== 14) failures.push(`The timeline requires 14 dated milestones; found ${milestones.length}.`);
@@ -20,13 +37,17 @@ for (const [, year, target, number] of milestones) {
 }
 if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
 const hero = html.match(/<section class="hero\b[\s\S]*?<\/section>/)?.[0] || '';
-if (!/<img src="\/art\/hero\.svg" alt=""/.test(hero)) failures.push('Hero requires the decorative projector illustration.');
-if (/<svg\b/.test(html)) failures.push('Illustrations must load as images, not inline SVG.');
+const inlineHero = hero.match(/<!-- hero-art:start --><svg class="hero-illustration" viewBox="0 0 760 600" width="760" height="600" aria-hidden="true" focusable="false">([\s\S]*?)<\/svg><!-- hero-art:end -->/)?.[1];
+const heroFileBody = read('public/art/hero.svg').replace(/^<svg\b[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+const normalizeSvg = (markup) => markup.replace(/\r\n/g, '\n').trim();
+if (!inlineHero) failures.push('Hero requires the generated, decorative inline projector drawing.');
+else if (normalizeSvg(inlineHero) !== normalizeSvg(heroFileBody)) failures.push('The inline hero is out of date; run npm run art.');
+if ((html.match(/<svg\b/g) || []).length !== 1) failures.push('Only the animated hero may be inline SVG; other illustrations load as images.');
 
 const brandColors = new Set(['#171715', '#F3EFE6', '#E5DED1', '#A8342A', '#78A9B5', '#625D55', '#FAF7F0']);
 const artFiles = ['hero.svg', 'chairs.svg', ...Array.from({ length: 8 }, (_, index) => `episode-0${index + 1}.svg`)];
 for (const file of artFiles) {
-  if (!html.includes(`src="/art/${file}"`)) failures.push(`Homepage must use /art/${file}.`);
+  if (file !== 'hero.svg' && !html.includes(`src="/art/${file}"`)) failures.push(`Homepage must use /art/${file}.`);
   if (!existsSync(`public/art/${file}`)) { failures.push(`Missing illustration: ${file}`); continue; }
   const art = read(`public/art/${file}`);
   if (/<script|<style|\sstyle\s*=|<image|href="(?:https?:|\/\/)/i.test(art)) failures.push(`${file} must be self-contained vector art without scripts, styles, or external references.`);

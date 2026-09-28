@@ -44,8 +44,14 @@ h2{font:450 clamp(42px,5vw,70px)/.95 var(--serif);letter-spacing:-.035em}
 .secondary-action{min-height:var(--target);display:inline-flex;align-items:center;font:500 12px var(--mono);letter-spacing:.06em;text-transform:uppercase;text-underline-offset:6px}
 .credit-line{max-width:62ch;margin:40px 0 0;padding-top:14px;border-top:1px solid var(--on-ink-rule);color:var(--on-ink-muted)}
 .hero-art{grid-column:8/13;margin:0 -12px 0 0}
-.hero-art img{display:block;width:100%;height:auto}
-.hero-art figcaption{margin-top:6px;padding-top:12px;border-top:1px solid var(--on-ink-rule);color:var(--on-ink-muted)}
+.hero-illustration{display:block;width:100%;height:auto}
+.hero-art figcaption{margin-top:6px;padding-top:6px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0 20px;border-top:1px solid var(--on-ink-rule);color:var(--on-ink-muted)}
+.hero-art figcaption>span{padding-block:6px}
+.motion-toggle{position:relative;min-height:var(--target);display:inline-flex;align-items:center;gap:10px;cursor:pointer;white-space:nowrap}
+.motion-toggle input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.motion-toggle span::before{content:"";display:inline-block;width:12px;height:12px;margin-right:10px;vertical-align:-1px;border:1px solid var(--on-ink-muted)}
+.motion-toggle input:checked+span::before{background:var(--on-ink-accent);border-color:var(--on-ink-accent)}
+.motion-toggle:has(input:focus-visible){outline:3px solid var(--white);outline-offset:3px;box-shadow:0 0 0 6px var(--ink)}
 
 .format{padding-block:clamp(64px,8vw,110px)}
 .format-grid{row-gap:48px;align-items:end}
@@ -267,9 +273,25 @@ html:not(.enhanced) .site-header nav{grid-column:1/13;justify-self:start}
 }
 
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}
+.motion-toggle{display:none}
+}
+
+/* The only motion on the site: a slow, low-amplitude loop in the hero drawing. It is pausable from the caption and never runs for reduced-motion users. */
+@media(prefers-reduced-motion:no-preference){
+.hero-reel{transform-box:fill-box;transform-origin:center;animation:hero-reel 14s linear infinite}
+.hero-reel--rear{animation-duration:11s}
+.hero-beam{animation:hero-beam 6s ease-in-out infinite alternate}
+.hero-motes{animation:hero-motes 9s ease-in-out infinite alternate}
+.hero-screen{transform-box:fill-box;transform-origin:center;animation:hero-screen 16s cubic-bezier(.65,0,.35,1) infinite}
+.hero-art:has(#hero-motion-pause:checked) :is(.hero-reel,.hero-beam,.hero-motes,.hero-screen){animation-play-state:paused}
+@keyframes hero-reel{to{transform:rotate(360deg)}}
+@keyframes hero-beam{to{opacity:.72}}
+@keyframes hero-motes{to{transform:translate(10px,-8px)}}
+@keyframes hero-screen{0%,19%{transform:scale(2.25,.923)}25%,44%{transform:scale(3.625,.859)}50%,69%{transform:scale(3.2,1.014)}75%,94%{transform:scale(1,1)}100%{transform:scale(2.25,.923)}}
 }
 
 @media(forced-colors:active){.host figure img{filter:none}
 .act::before,.era::before{background:CanvasText}
+.motion-toggle:has(input:focus-visible){outline:3px solid Highlight;box-shadow:none}
 a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid Highlight;box-shadow:none}
 }

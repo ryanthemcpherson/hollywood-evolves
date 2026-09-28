@@ -104,7 +104,7 @@ test('the cover leads with the brief thesis, two routes, and no host portrait', 
     heading: hero.querySelector('h1').textContent.trim(),
     actions: [...hero.querySelectorAll('a')].map((node) => node.textContent.trim()),
     portraits: hero.querySelectorAll('img[src*="ian-mcpherson"]').length,
-    art: hero.querySelectorAll('img[src="/art/hero.svg"][alt=""]').length,
+    art: hero.querySelectorAll('svg.hero-illustration[aria-hidden="true"]').length,
   }));
   assert.equal(cover.heading, 'Hollywood keeps reinventing itself. What happens next?');
   assert.deepEqual(cover.actions, ['See the Episode 01 forecast ↓', 'Browse Season One']);
@@ -119,7 +119,7 @@ test('hero composition gives the thesis and projector art visual command of the 
     await p.goto(origin, { waitUntil: 'networkidle0' });
     const state = await p.evaluate(() => ({
       copy: document.querySelector('.hero-copy').getBoundingClientRect().toJSON(),
-      art: document.querySelector('.hero-art img').getBoundingClientRect().toJSON(),
+      art: document.querySelector('.hero-art svg').getBoundingClientRect().toJSON(),
       headingSize: Number.parseFloat(getComputedStyle(document.querySelector('.hero h1')).fontSize),
       deckSize: Number.parseFloat(getComputedStyle(document.querySelector('.deck')).fontSize),
       heroBottom: document.querySelector('.hero').getBoundingClientRect().bottom,
@@ -196,7 +196,7 @@ test('hero art stays balanced within page-height budgets', async () => {
       };
     });
     const label = `${width}x${height}`;
-    assert.equal(state.inlineSvgCount, 0, `${label}: hero art loads as an image`);
+    assert.equal(state.inlineSvgCount, 1, `${label}: one decorative inline hero drawing`);
     assert.ok(state.pageHeight <= maxPageHeight, `${label}: page height ${state.pageHeight}px > ${maxPageHeight}px`);
     assert.ok(state.overflow <= 1, `${label}: overflow ${state.overflow}px`);
     assert.deepEqual(state.smallTargets, [], `${label}: authored targets`);
@@ -326,6 +326,26 @@ test('homepage stays free of console, page, and CSP errors after representative 
   await p.close();
 });
 
+test('the hero drawing loops only on the hero, and the caption control pauses it by keyboard', async () => {
+  const p = await page(390, 844);
+  await p.goto(origin, { waitUntil: 'networkidle0' });
+  const running = await p.evaluate(() => document.getAnimations().map((animation) => ({
+    name: animation.animationName,
+    inHero: Boolean(animation.effect.target.closest('.hero-illustration')),
+    state: animation.playState,
+  })));
+  assert.deepEqual([...new Set(running.map(({ name }) => name))].sort(), ['hero-beam', 'hero-motes', 'hero-reel', 'hero-screen']);
+  assert.ok(running.every(({ inHero, state }) => inHero && state === 'running'), JSON.stringify(running));
+  await p.focus('#hero-motion-pause');
+  await p.keyboard.press('Space');
+  const paused = await p.evaluate(() => ({
+    checked: document.querySelector('#hero-motion-pause').checked,
+    states: [...new Set(document.getAnimations().map((animation) => getComputedStyle(animation.effect.target).animationPlayState))],
+  }));
+  assert.deepEqual(paused, { checked: true, states: ['paused'] });
+  await p.close();
+});
+
 test('reduced motion is static and does not move content', async () => {
   const p = await page();
   await p.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
@@ -343,11 +363,21 @@ test('reduced motion is static and does not move content', async () => {
     const before = tracked.map((node) => node.getBoundingClientRect().toJSON());
     await new Promise((resolve) => setTimeout(resolve, 250));
     const after = tracked.map((node) => node.getBoundingClientRect().toJSON());
-    return { motion: matchMedia('(prefers-reduced-motion: reduce)').matches, moving, before, after, scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior };
+    return {
+      motion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      moving,
+      animations: document.getAnimations().length,
+      toggle: getComputedStyle(document.querySelector('.motion-toggle')).display,
+      before,
+      after,
+      scrollBehavior: getComputedStyle(document.documentElement).scrollBehavior,
+    };
   });
   assert.equal(state.motion, true);
   assert.equal(state.scrollBehavior, 'auto');
   assert.deepEqual(state.moving, []);
+  assert.equal(state.animations, 0);
+  assert.equal(state.toggle, 'none', 'the pause control is hidden when nothing moves');
   assert.deepEqual(state.after, state.before);
   await p.close();
 });
