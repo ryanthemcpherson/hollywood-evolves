@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer, request } from 'node:http';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import test from 'node:test';
-import { CommentaryStore } from '../lib/commentary-store.mjs';
+import { ADMIN_TOKEN, AUTH_SECRET, completeAuthEnv, EPISODE_01 } from './support/database.mjs';
+
+// Tests start from a clean slate so a developer's shell cannot switch sign-in on by accident.
+const AUTH_VARIABLES = ['AUTH_ENABLED', 'DATABASE_URL', 'PUBLIC_ORIGIN', 'LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'LINKEDIN_REDIRECT_URI', 'AUTH_SECRET', 'ADMIN_TOKEN', 'ADMIN_NAME', 'COMMENTARY_ENABLED', 'TRUST_PROXY'];
+const baseEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => !AUTH_VARIABLES.includes(name)));
 
 async function availablePort() {
   const probe = createServer();
@@ -33,7 +35,7 @@ async function startServer(t, env = {}) {
   const port = await availablePort();
   const child = spawn(process.execPath, ['server.mjs'], {
     cwd: new URL('..', import.meta.url),
-    env: { ...process.env, PORT: String(port), ...env },
+    env: { ...baseEnv, PORT: String(port), ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   t.after(async () => {
@@ -56,7 +58,9 @@ async function startServer(t, env = {}) {
       }
     });
   });
-  return { child, port };
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  return { child, port, stderr: () => stderr };
 }
 
 test('malformed URL returns 400 without terminating the server', async (t) => {
@@ -214,123 +218,86 @@ test('security headers remain on HTML and asset responses', async (t) => {
   }
 });
 
-test('unavailable public commentary routes are hidden when configuration is absent', async (t) => {
-  const { port } = await startServer(t);
+const contractRoutes = [
+  ['GET', '/auth/linkedin'],
+  ['GET', '/auth/linkedin/callback?code=x&state=y'],
+  ['POST', '/api/session/logout'],
+  ['DELETE', '/api/account'],
+  ['GET', `/api/forecasts/${EPISODE_01}`],
+  ['GET', `/api/forecasts/${EPISODE_01}/mine`],
+  ['POST', `/api/forecasts/${EPISODE_01}`],
+  ['GET', `/api/questions/${EPISODE_01}/comments`],
+  ['POST', `/api/questions/${EPISODE_01}/comments`],
+  ['POST', `/api/admin/questions/${EPISODE_01}`],
+  ['POST', `/api/admin/questions/${EPISODE_01}/resolution`],
+  ['POST', `/api/admin/questions/${EPISODE_01}/expert-forecasts`],
+  ['GET', '/api/admin/export/forecasts'],
+  ['GET', '/api/admin/comments'],
+  ['POST', '/api/admin/comments/comment_1'],
+  ['POST', '/api/admin/verification'],
+];
+
+async function assertSignInOff(port) {
   const session = await get(port, '/api/session');
-  assert.equal(session.status, 404);
-
-  const login = await get(port, '/auth/linkedin');
-  assert.equal(login.status, 404);
-  assert.equal(login.body, 'Not Found');
-
-  const comments = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments');
-  assert.equal(comments.status, 404);
-
-  const submit = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), { 'content-type': 'application/json', origin: 'https://hollywoodevolves.mcpherson.app' });
-  assert.equal(submit.status, 401);
-
-  const pending = await get(port, '/api/admin/comments');
-  assert.equal(pending.status, 401);
-});
-
-test('state-changing commentary routes require the exact public origin before authentication', async (t) => {
-  const { port } = await startServer(t, { PUBLIC_ORIGIN: 'https://hollywoodevolves.mcpherson.app' });
-  for (const origin of [undefined, 'https://attacker.example']) {
-    const response = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A sufficiently detailed perspective for moderation.' }), {
+  assert.equal(session.status, 200);
+  assert.deepEqual(JSON.parse(session.body), { authEnabled: false });
+  for (const [method, path] of contractRoutes) {
+    // Node's client sends DELETE bodies without framing, so only POST carries one.
+    const response = await get(port, path, method, method === 'POST' ? '{}' : null, {
       'content-type': 'application/json',
-      ...(origin ? { origin } : {}),
+      origin: 'https://hollywoodevolves.mcpherson.app',
+      authorization: `Bearer ${ADMIN_TOKEN}`,
     });
-    assert.equal(response.status, 403);
-    assert.match(JSON.parse(response.body).error, /origin/i);
+    assert.equal(response.status, 404, `${method} ${path}`);
   }
+}
+
+test('without sign-in configuration the server boots with no DATABASE_URL and every contract route is 404', async (t) => {
+  const { port, child } = await startServer(t);
+  await assertSignInOff(port);
+  assert.equal((await get(port, '/readyz')).status, 200);
+  assert.equal(child.exitCode, null);
 });
 
-test('commentary activation requires moderation credentials and an explicit persistent path', async (t) => {
-  const incomplete = {
+test('sign-in stays off unless every required setting is present and valid, and the warning never includes values', async (t) => {
+  const incomplete = { ...completeAuthEnv, ADMIN_TOKEN: 'short-admin-token' };
+  const { port, stderr } = await startServer(t, incomplete);
+  await assertSignInOff(port);
+  assert.match(stderr(), /auth_disabled_incomplete_config/);
+  assert.match(stderr(), /ADMIN_TOKEN/);
+  assert.doesNotMatch(stderr(), /short-admin-token|password|client-secret/);
+  assert.doesNotMatch(stderr(), new RegExp(AUTH_SECRET));
+
+  const { port: mismatchedPort } = await startServer(t, { ...completeAuthEnv, LINKEDIN_REDIRECT_URI: 'https://attacker.example/auth/linkedin/callback' });
+  await assertSignInOff(mismatchedPort);
+  const { port: legacyPort } = await startServer(t, {
     COMMENTARY_ENABLED: 'true',
     COMMENTARY_SECRET: 'a-commentary-secret-that-is-long-enough',
+    COMMENTARY_ADMIN_TOKEN: 'moderation-token-with-at-least-32-characters',
+    COMMENTARY_ADMIN_NAME: 'Ian McPherson',
     LINKEDIN_CLIENT_ID: 'client-id',
     LINKEDIN_CLIENT_SECRET: 'client-secret',
     LINKEDIN_REDIRECT_URI: 'https://hollywoodevolves.mcpherson.app/auth/linkedin/callback',
-  };
-  const { port } = await startServer(t, incomplete);
-  const session = await get(port, '/api/session');
-  assert.equal(session.status, 404);
-  const login = await get(port, '/auth/linkedin');
-  assert.equal(login.status, 404);
-
-  const { port: mismatchedPort } = await startServer(t, {
-    ...incomplete,
-    COMMENTARY_ADMIN_TOKEN: 'moderation-token-with-at-least-32-characters',
-    COMMENTARY_ADMIN_NAME: 'Ian McPherson',
-    COMMENTARY_DATA_PATH: '/tmp/hollywood-evolves-mismatched-commentary.json',
-    PUBLIC_ORIGIN: 'https://hollywoodevolves.mcpherson.app',
-    LINKEDIN_REDIRECT_URI: 'https://attacker.example/auth/linkedin/callback',
   });
-  const mismatchedSession = await get(mismatchedPort, '/api/session');
-  assert.equal(mismatchedSession.status, 404);
+  await assertSignInOff(legacyPort);
 });
 
-test('successful configured authentication redirects to the homepage root', async () => {
-  const source = await readFile(new URL('../server.mjs', import.meta.url), 'utf8');
-  assert.match(source, /Location: `\$\{publicOrigin\}\/`/);
-  assert.doesNotMatch(source, /#contributors/);
-});
-
-test('authenticated commentary stays pending until a configured editor approves and verifies it', async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), 'he-commentary-'));
-  t.after(() => rm(directory, { recursive: true, force: true }));
-  const dataPath = join(directory, 'commentary.json');
-  const secret = 'commentary-secret-with-at-least-32-characters';
-  // The spawned server validates sessions against the real clock, so the fixture must not drift into the past.
-  const fixtureNow = new Date().toISOString();
-  const store = new CommentaryStore({ secret, now: () => fixtureNow });
-  store.upsertLinkedInMember({ sub: 'member-1', name: 'Ada Lovelace', picture: null, email: 'ada@example.com', emailVerified: true });
-  const sessionFixture = store.createSession('member-1');
-  await writeFile(dataPath, JSON.stringify(store.snapshot()));
-  const adminToken = 'moderation-token-with-at-least-32-characters';
-  const origin = 'https://hollywoodevolves.mcpherson.app';
-  const { port } = await startServer(t, {
-    COMMENTARY_ENABLED: 'true', COMMENTARY_SECRET: secret, COMMENTARY_ADMIN_TOKEN: adminToken,
-    COMMENTARY_ADMIN_NAME: 'Ian McPherson', COMMENTARY_DATA_PATH: dataPath, PUBLIC_ORIGIN: origin,
-    LINKEDIN_CLIENT_ID: 'client-id', LINKEDIN_CLIENT_SECRET: 'client-secret',
-    LINKEDIN_REDIRECT_URI: `${origin}/auth/linkedin/callback`,
-  });
-  const cookieHeader = `__Host-he_session=${sessionFixture.token}`;
-  const session = await get(port, '/api/session', 'GET', null, { cookie: cookieHeader });
-  const sessionBody = JSON.parse(session.body);
-  assert.equal(sessionBody.authenticated, true);
-  assert.equal(sessionBody.commentaryEnabled, true);
-
-  const submission = await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments', 'POST', JSON.stringify({ body: 'A detailed industry perspective submitted for editorial review.', consent: true }), {
-    cookie: cookieHeader, origin, 'content-type': 'application/json', 'x-csrf-token': sessionBody.csrfToken,
-  });
-  assert.equal(submission.status, 202);
-  const commentId = JSON.parse(submission.body).id;
-  assert.deepEqual(JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body), { comments: [] });
-
-  const verification = await get(port, '/api/admin/verification', 'POST', JSON.stringify({ memberSub: 'member-1', verified: true, reviewer: 'attacker-controlled' }), {
-    authorization: `Bearer ${adminToken}`, origin, 'content-type': 'application/json',
-  });
-  assert.equal(verification.status, 200);
-  const moderation = await get(port, `/api/admin/comments/${commentId}`, 'POST', JSON.stringify({ decision: 'approved', moderator: 'attacker-controlled' }), {
-    authorization: `Bearer ${adminToken}`, origin, 'content-type': 'application/json',
-  });
-  assert.equal(moderation.status, 200);
-  const published = JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body).comments;
-  assert.equal(published[0].contributor.name, 'Ada Lovelace');
-  assert.equal(published[0].contributor.verifiedIndustry, true);
-  assert.doesNotMatch(JSON.stringify(published), /ada@example\.com|member-1/);
-  const persisted = JSON.parse(await readFile(dataPath, 'utf8'));
-  assert.match(JSON.stringify(persisted.audit), /Ian McPherson/);
-  assert.doesNotMatch(JSON.stringify(persisted.audit), /attacker-controlled/);
-
-  const deletion = await get(port, '/api/account', 'DELETE', null, { cookie: cookieHeader, origin, 'x-csrf-token': sessionBody.csrfToken });
-  assert.equal(deletion.status, 200);
-  assert.match(deletion.headers['set-cookie'][0], /Max-Age=0/);
-  assert.deepEqual(JSON.parse((await get(port, '/api/questions/he-episode-01-customer-evolution-v1/comments')).body), { comments: [] });
-  const afterDeletion = await readFile(dataPath, 'utf8');
-  assert.doesNotMatch(afterDeletion, /member-1|ada@example\.com|Ada Lovelace|detailed industry perspective/);
+test('with sign-in on and an unreachable database the site keeps serving while readiness fails', async (t) => {
+  const { port, child, stderr } = await startServer(t, { ...completeAuthEnv, DATABASE_URL: 'postgres://he:db-password-value@127.0.0.1:1/none' });
+  assert.equal((await get(port, '/')).status, 200);
+  assert.equal((await get(port, '/healthz')).status, 200);
+  const ready = await get(port, '/readyz');
+  assert.equal(ready.status, 503);
+  assert.deepEqual(JSON.parse(ready.body), { status: 'unavailable' });
+  assert.deepEqual(JSON.parse((await get(port, '/api/session')).body), { authEnabled: false });
+  const forecast = await get(port, `/api/forecasts/${EPISODE_01}`);
+  assert.equal(forecast.status, 503);
+  assert.deepEqual(JSON.parse(forecast.body), { error: 'unavailable' });
+  assert.equal((await get(port, '/auth/linkedin')).status, 503);
+  assert.equal(child.exitCode, null);
+  assert.match(stderr(), /database_migration_failed/);
+  assert.doesNotMatch(stderr(), /db-password-value|client-secret/);
+  assert.doesNotMatch(stderr(), new RegExp(`${AUTH_SECRET}|${ADMIN_TOKEN}`));
 });
 
 test('public runtime retires the demo route even when stale deployment variables remain', async (t) => {
