@@ -5,13 +5,19 @@ const html = read('index.html');
 const css = read('src/style.css');
 const js = read('src/main.js');
 const failures = [];
-const required = ['Hollywood', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'Act I — The Past', 'Act II — The Present', 'Act III — Future Synthesis', 'Expert Alpha', 'Community Forecast', 'Market Update', '1947 theatergoer', 'Complexity Tax', 'Synthetic Idol', 'Méliès', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)', 'DEG’s 30th anniversary'];
+const required = ['Hollywood', 'Customer Evolution', 'Media Supply Chain Evolution', 'Creator Evolution', 'Content Evolution', 'Commercial Evolution', 'Audio Evolution', 'VFX Evolution', 'Animation Evolution', 'Act I — The Past', 'Act II — The Present', 'Act III — Future Synthesis', 'Expert Alpha', 'Community Forecast', 'Market Update', '1947 theatergoer', 'Complexity Tax', 'Synthetic Idol', 'Méliès', 'A Trip to the Moon', 'The Jazz Singer', 'Paramount', 'Dolby Atmos', 'December 31, 2029', 'Head of Business Development at TMT Insights', '11 years at AWS', 'Digital Entertainment Group (DEG)', 'DEG’s 30th anniversary'];
 for (const term of required) if (!html.includes(term)) failures.push(`Missing required copy: ${term}`);
 
 const prohibited = /\b(?:demo|preview|draft|planned|coming[ -]soon|future[ -]system)\b|\b(?:Spotify|Apple Podcasts|YouTube)\b|\b\d{1,3}%\b/i;
 if (prohibited.test(`${html}\n${js}`)) failures.push('Homepage or homepage JavaScript contains a prohibited state, fake value, or platform promise.');
 for (const pattern of [/data-demo/i, /class="ledger"/i, /hero-dock/i, /@keyframes/i, /animation\s*:/i, /linear-gradient/i, /radial-gradient/i, /<style\b|\sstyle\s*=/i]) if (pattern.test(`${html}\n${css}`)) failures.push(`Forbidden homepage pattern: ${pattern}`);
-for (const id of ['top', 'format', 'season', 'forecast', 'market', 'host']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+for (const id of ['top', 'format', 'history', 'season', 'forecast', 'market', 'host']) if ((html.match(new RegExp(`id="${id}"`, 'g')) || []).length !== 1) failures.push(`Chapter ${id} must appear exactly once.`);
+const milestones = [...html.matchAll(/<li><time datetime="(\d{4})">\1<\/time><p>[^\n]+?<\/p><a href="#([a-z0-9-]+)">Episode (\d{2}) · [^<]+<\/a><\/li>/g)];
+if (milestones.length !== 14) failures.push(`The timeline requires 14 dated milestones; found ${milestones.length}.`);
+for (const [, year, target, number] of milestones) {
+  if (!html.includes(`id="${target}"`)) failures.push(`Timeline milestone ${year} links to missing #${target}.`);
+  if (!target.endsWith(`-${number}`)) failures.push(`Timeline milestone ${year} labels Episode ${number} but links to #${target}.`);
+}
 if ((html.match(/ian-mcpherson\.webp/g) || []).length !== 1) failures.push('Ian portrait must appear exactly once.');
 const hero = html.match(/<section class="hero\b[\s\S]*?<\/section>/)?.[0] || '';
 if (!/<img src="\/art\/hero\.svg" alt=""/.test(hero)) failures.push('Hero requires the decorative projector illustration.');

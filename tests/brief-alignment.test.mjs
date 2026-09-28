@@ -59,6 +59,31 @@ test('Season One follows the brief’s numbered slate with synopses and illustra
   assert.match(season, /<a class="episode-link" href="#question-01">/);
 });
 
+test('the history chapter sets dated past and present pivots against every episode', async () => {
+  const html = await read('index.html');
+  const history = section(html, 'history chapter');
+  assert.ok(history, 'history chapter exists');
+  const eras = [...history.matchAll(/<div class="era era--(past|present)">[\s\S]*?<\/ol>/g)].map(([markup, era]) => ({
+    era,
+    milestones: [...markup.matchAll(/<time datetime="(\d{4})">\d{4}<\/time><p>[^\n]+?<\/p><a href="#([a-z0-9-]+)">Episode (\d{2}) · ([^<]+)<\/a>/g)]
+      .map(([, year, target, number, title]) => ({ year: Number(year), target, number, title })),
+  }));
+  assert.deepEqual(eras.map(({ era, milestones }) => [era, milestones.length]), [['past', 7], ['present', 7]]);
+  for (const { era, milestones } of eras) {
+    const years = milestones.map(({ year }) => year);
+    assert.deepEqual(years, [...years].sort((a, b) => a - b), `${era} milestones run in date order`);
+    assert.ok(era === 'past' ? years.every((year) => year < 1990) : years.every((year) => year >= 1990), `${era}: ${years}`);
+  }
+  const titles = new Map([...html.matchAll(/<p class="episode-number">Episode (\d{2})<\/p><h3>([^<]+) Evolution<\/h3>/g)].map(([, number, title]) => [number, title]));
+  const all = eras.flatMap(({ milestones }) => milestones);
+  for (const { year, target, number, title } of all) {
+    assert.ok(html.includes(`id="${target}"`), `${year} links to an existing anchor`);
+    assert.equal(target.endsWith(`-${number}`), true, `${year} links to its own episode`);
+    assert.equal(title, titles.get(number), `${year} names Episode ${number} correctly`);
+  }
+  assert.deepEqual([...new Set(all.map(({ number }) => number))].sort(), ['01', '02', '03', '04', '05', '06', '07', '08']);
+});
+
 test('each editorial question appears once with a complete contract', async () => {
   const html = await read('index.html');
   const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());

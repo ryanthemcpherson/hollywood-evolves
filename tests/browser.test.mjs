@@ -9,9 +9,9 @@ import puppeteer from 'puppeteer-core';
 
 const VIEWPORTS = [[320, 844], [390, 844], [430, 844], [768, 900], [1366, 768], [1440, 900]];
 const HERO_GEOMETRY_VIEWPORTS = [
-  { width: 320, height: 844, maxPageHeight: 9300, layout: 'stacked' },
-  { width: 390, height: 844, maxPageHeight: 8700, layout: 'stacked' },
-  { width: 1366, height: 768, maxPageHeight: 6350, layout: 'side-by-side' },
+  { width: 320, height: 844, maxPageHeight: 11700, layout: 'stacked' },
+  { width: 390, height: 844, maxPageHeight: 10900, layout: 'stacked' },
+  { width: 1366, height: 768, maxPageHeight: 7850, layout: 'side-by-side' },
 ];
 const READABILITY_FLOOR_VIEWPORTS = [[320, 844], [390, 844], [1366, 768], [1440, 900]];
 const CANONICAL = 'https://hollywoodevolves.mcpherson.app/';
@@ -298,13 +298,13 @@ test('homepage viewport matrix preserves reflow, grid, type, target, and reading
     assert.deepEqual(metrics.gridErrors, [], `${width}x${height} off-grid children`);
     assert.deepEqual(metrics.headingClips, [], `${width}x${height} clipped headings`);
     assert.deepEqual(metrics.headingWordSplits, [], `${width}x${height} split heading words`);
-    assert.equal(metrics.blocks.length, 6, `${width}x${height}: essential chapter count`);
+    assert.equal(metrics.blocks.length, 7, `${width}x${height}: essential chapter count`);
     assert.ok(metrics.words > 300 && metrics.paragraphs >= 15 && metrics.longParagraphs >= 5, JSON.stringify(metrics));
     await p.close();
   }
   const mobile390 = records.find(({ width }) => width === 390);
-  assert.ok(mobile390.viewports < 10.4, JSON.stringify(mobile390));
-  assert.ok(mobile390.words < 960, JSON.stringify(mobile390));
+  assert.ok(mobile390.viewports < 13, JSON.stringify(mobile390));
+  assert.ok(mobile390.words < 1260, JSON.stringify(mobile390));
   console.log(`HOMEPAGE_MATRIX ${JSON.stringify(records)}`);
 });
 
@@ -376,6 +376,23 @@ test('forced colors preserves disclosure and Episode 01 forecast focus states', 
   assert.equal(await p.$eval('#forecast-output', (node) => node.textContent), '51% · toss-up');
   assert.match(await outline('#forecast-probability'), /solid 3px/);
   await p.evaluate(() => localStorage.removeItem('he-private-forecast'));
+  await p.close();
+});
+
+test('timeline links land on their episode and open its forecast question', async () => {
+  const p = await page(390, 844);
+  await p.goto(origin, { waitUntil: 'domcontentloaded' });
+  await p.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; });
+  await p.click('.milestones a[href="#question-04"]');
+  await p.waitForFunction(() => document.querySelector('#question-04 details').open);
+  const state = await p.evaluate(() => ({
+    hash: location.hash,
+    top: Math.round(document.querySelector('#question-04').getBoundingClientRect().top),
+    otherOpen: [...document.querySelectorAll('.season-slate details')].filter(({ open }) => open).length,
+  }));
+  assert.equal(state.hash, '#question-04');
+  assert.ok(state.top >= 0 && state.top < 200, `episode scrolled into view at ${state.top}px`);
+  assert.equal(state.otherOpen, 1);
   await p.close();
 });
 
@@ -592,7 +609,7 @@ test('no-JS at narrow widths retains nav, eight questions/contracts, story, and 
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     });
-    assert.deepEqual(state, { menuButton: 'none', navLinks: 5, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 6, words: state.words, overflow: state.overflow });
+    assert.deepEqual(state, { menuButton: 'none', navLinks: 6, questions: 8, visibleQuestions: 8, contracts: 8, chapters: 7, words: state.words, overflow: state.overflow });
     assert.ok(state.words >= 450, `${width}px no-JS story has ${state.words} words`);
     assert.ok(state.overflow <= 1, `${width}px no-JS overflow ${state.overflow}px`);
     await p.close();

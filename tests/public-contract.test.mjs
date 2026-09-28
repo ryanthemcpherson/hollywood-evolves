@@ -23,7 +23,7 @@ test('homepage uses one Season One slate and complete question contracts', async
   assert.equal((html.match(/<dt>Deadline<\/dt>/g) || []).length, 8);
   assert.equal((html.match(/<dt>Evidence<\/dt>/g) || []).length, 8);
   assert.doesNotMatch(html, /data-question-call|compact-call|question-0[1-8]-call/);
-  assert.match(html, /02 \/ Season One/);
+  assert.match(html, /<p class="chapter-label">\d{2} \/ Season One<\/p>/);
   assert.equal((html.match(/<li class="episode[ "]/g) || []).length, 8);
   assert.equal((html.match(/ian-mcpherson\.webp/g) || []).length, 1);
 });

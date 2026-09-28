@@ -68,6 +68,23 @@ h2{font:450 clamp(42px,5vw,70px)/.95 var(--serif);letter-spacing:-.035em}
 .act strong{display:block;margin:6px 0 10px;font:450 23px/1.1 var(--serif)}
 .act p{margin:0;color:var(--muted);font-size:14px}
 
+.history{padding-block:clamp(64px,8vw,110px);background:var(--ink);color:var(--white)}
+.history-grid{row-gap:44px}
+.history header{grid-column:1/8}
+.history .chapter-label{color:var(--on-ink-muted)}
+.history h2{margin:16px 0 22px}
+.history header>p:last-child{max-width:56ch;margin:0;color:var(--on-ink-muted)}
+.era{grid-column:span 6;position:relative;padding-top:30px}
+.era::before{content:"";position:absolute;top:0;left:0;right:0;height:10px;background:var(--muted)}
+.era--present::before{background:var(--signal)}
+.era h3{margin:0 0 10px;font:450 30px/1.1 var(--serif)}
+.era h3 span{display:block;margin-bottom:6px;color:var(--on-ink-accent);font:500 11px/1.4 var(--mono);letter-spacing:.09em;text-transform:uppercase}
+.milestones{list-style:none;margin:0;padding:0}
+.milestones li{display:grid;grid-template-columns:88px minmax(0,1fr);column-gap:20px;padding-top:16px;border-top:1px solid var(--on-ink-rule)}
+.milestones time{grid-row:span 2;font:450 34px/1 var(--serif);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.milestones p{margin:0;font-size:15px;line-height:1.45}
+.milestones a{justify-self:start;min-height:var(--target);display:inline-flex;align-items:center;color:var(--on-ink-muted);font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;text-underline-offset:5px}
+
 .season{padding-block:clamp(64px,8vw,110px);background:var(--paper-alt)}
 .season-grid{row-gap:48px}
 .season header{grid-column:1/8}
@@ -167,6 +184,7 @@ footer{padding-block:38px 22px;background:var(--accent);color:var(--white);font-
 .act--intro::before{right:50%}
 .season header{grid-column:1/13}
 .forecast header,.forecast-context,.question-block,.reader-call{grid-column:1/13}
+.history header{grid-column:1/13}
 .forecast-context{max-width:60ch}
 .host-grid>div{grid-column:6/13}
 }
@@ -192,7 +210,7 @@ html:not(.enhanced) .site-header nav{grid-column:1/13;justify-self:start}
 .primary-action{width:100%;justify-content:space-between}
 .credit-line{margin-top:24px}
 
-  .format,.season,.market,.host{padding-block:48px}
+  .format,.history,.season,.market,.host{padding-block:48px}
 .format-grid,.season-grid{row-gap:32px}
 .format h2,.season h2,.market h2,.host h2{font-size:43px;margin:10px 0 16px}
 .cast-list{gap:8px}
@@ -200,6 +218,13 @@ html:not(.enhanced) .site-header nav{grid-column:1/13;justify-self:start}
 .cast-list span{font-size:13px}
 .acts{grid-template-columns:minmax(0,1fr);row-gap:28px}
 .act,.act+.act{padding:26px 0 0;border-left:0}
+
+  .history-grid{row-gap:36px}
+.history h2{font-size:43px;margin:10px 0 16px}
+.era{grid-column:1/13}
+.milestones li{grid-template-columns:64px minmax(0,1fr);column-gap:14px}
+.milestones time{font-size:26px}
+.milestones p{font-size:14px}
 
   .season-slate{grid-template-columns:minmax(0,1fr);gap:32px}
 .episode{grid-template-columns:96px minmax(0,1fr);gap:14px}
@@ -237,6 +262,7 @@ html:not(.enhanced) .site-header nav{grid-column:1/13;justify-self:start}
 }
 
 @media(hover:hover){.episode-link:hover,.season-slate summary:hover{color:var(--ink)}
+.milestones a:hover{color:var(--white)}
 .secondary-action:hover{color:var(--on-ink-accent)}
 }
 
@@ -244,6 +270,6 @@ html:not(.enhanced) .site-header nav{grid-column:1/13;justify-self:start}
 }
 
 @media(forced-colors:active){.host figure img{filter:none}
-.act::before{background:CanvasText}
+.act::before,.era::before{background:CanvasText}
 a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid Highlight;box-shadow:none}
 }
