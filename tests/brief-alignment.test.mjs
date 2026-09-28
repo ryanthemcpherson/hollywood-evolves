@@ -84,6 +84,20 @@ test('the history chapter sets dated past and present pivots against every episo
   assert.deepEqual([...new Set(all.map(({ number }) => number))].sort(), ['01', '02', '03', '04', '05', '06', '07', '08']);
 });
 
+test('the social card pairs the thesis with the projector art and the canonical wordmark', async () => {
+  const [card, wordmark, png] = await Promise.all([
+    read('public/brand/social-card.svg'),
+    read('public/brand/wordmark-inverse.svg'),
+    readFile(new URL('../public/brand/social-card.png', import.meta.url)),
+  ]);
+  assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 630]);
+  assert.match(card, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="1200" height="630"/);
+  for (const line of ['Hollywood keeps', 'reinventing itself.', 'What happens next?', 'AN EXECUTIVE PODCAST SERIES · SEASON ONE']) assert.ok(card.includes(`>${line}</text>`), line);
+  const wordmarkBody = wordmark.trim().replace(/^<svg\b[^>]*>/, '').replace(/<title[^>]*>.*?<\/title>/, '');
+  assert.ok(card.includes(wordmarkBody), 'embeds the canonical inverse wordmark unchanged');
+  assert.doesNotMatch(card, /partnership|<script|<image|href="(?:https?:|\/\/)/i);
+});
+
 test('each editorial question appears once with a complete contract', async () => {
   const html = await read('index.html');
   const questions = [...html.matchAll(/<p class="editorial-question">([^<]+)<\/p>/g)].map((match) => match[1].trim());

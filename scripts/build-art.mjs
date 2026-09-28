@@ -1,6 +1,6 @@
 // Generates the flat, cut-paper editorial illustrations in public/art/.
 // Run with `npm run art` after editing; the SVG output is committed.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 
 const color = {
   ink: '#171715',
@@ -185,7 +185,8 @@ function animation() {
 }
 
 // Hero — one projector beam, and the screen it lands on keeps changing shape.
-function hero() {
+// Drawn on a 760×600 canvas; the social card reuses the same body.
+function heroBody() {
   const reel = (cx, cy, radius) => {
     const holes = Array.from({ length: 5 }, (_, index) => {
       const [x, y] = polar(cx, cy, radius * 0.55, -90 + index * 72);
@@ -195,7 +196,7 @@ function hero() {
   };
   const motes = [[340, 286, 1.6], [372, 262, 1.1], [410, 318, 2], [446, 240, 1.3], [468, 350, 1.5], [396, 300, 1], [520, 196, 1.8], [540, 404, 1.2], [590, 150, 1.4], [612, 452, 1.7], [660, 214, 1.1], [690, 390, 1.5], [482, 286, 1]]
     .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${color.white}" opacity=".45"/>`);
-  return svg(760, 600, [
+  return [
     `<polygon points="292,278 292,302 760,560 760,40" fill="${color.white}" opacity=".07"/>`,
     `<polygon points="292,284 292,296 760,430 760,170" fill="${color.white}" opacity=".08"/>`,
     ...motes,
@@ -212,7 +213,33 @@ function hero() {
     `<rect x="510" y="234" width="180" height="131" fill="none" stroke="${color.alt}" stroke-width="2"/>`,
     `<rect x="562" y="228" width="80" height="142" fill="${color.red}"/>`,
     `<rect x="570" y="236" width="64" height="126" fill="none" stroke="${color.white}" stroke-width="1.5" opacity=".6"/>`,
-  ].join('\n'));
+  ].join('\n');
+}
+
+function hero() {
+  return svg(760, 600, heroBody());
+}
+
+// Social card — the thesis beside the projector, with the canonical inverse wordmark embedded unchanged.
+// Text uses the brand faces; scripts/build-social-card.mjs rasterizes it with those fonts loaded.
+function socialCard() {
+  const wordmark = readFileSync(new URL('../public/brand/wordmark-inverse.svg', import.meta.url), 'utf8')
+    .trim()
+    .replace(/<title[^>]*>.*?<\/title>/, '')
+    .replace(/^<svg\b[^>]*>/, '<svg x="72" y="60" width="348" height="64" viewBox="0 0 348 64">');
+  const serif = `font-family="Newsreader, Georgia, serif" font-size="66" letter-spacing="-2.2"`;
+  const mono = `font-family="'DM Mono', 'Courier New', monospace" font-weight="500" font-size="19" letter-spacing="2.2"`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc"><title id="title">Hollywood Evolves</title><desc id="desc">Hollywood keeps reinventing itself. What happens next? An executive podcast series.</desc>
+<rect width="1200" height="630" fill="${color.ink}"/>
+<g transform="translate(636 84) scale(.76)">${heroBody()}</g>
+${wordmark}
+<text x="72" y="272" ${serif} fill="${color.white}">Hollywood keeps</text>
+<text x="72" y="342" ${serif} fill="${color.white}">reinventing itself.</text>
+<text x="72" y="412" ${serif} fill="#EF8178">What happens next?</text>
+<rect x="72" y="484" width="56" height="4" fill="${color.red}"/>
+<text x="72" y="552" ${mono} fill="#CBC6BD">AN EXECUTIVE PODCAST SERIES · SEASON ONE</text>
+</svg>
+`;
 }
 
 // Format — three director's chairs: host, historical guest, operating guest.
@@ -244,4 +271,5 @@ const outputs = {
 const directory = new URL('../public/art/', import.meta.url);
 mkdirSync(directory, { recursive: true });
 for (const [name, markup] of Object.entries(outputs)) writeFileSync(new URL(name, directory), markup);
-console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/.`);
+writeFileSync(new URL('../public/brand/social-card.svg', import.meta.url), socialCard());
+console.log(`Wrote ${Object.keys(outputs).length} illustrations to public/art/ and the social card source to public/brand/.`);

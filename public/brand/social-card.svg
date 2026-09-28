@@ -1,1 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc"><title id="title">Hollywood Evolves</title><desc id="desc">A podcast and public forecast ledger</desc><rect width="1200" height="630" fill="#f3efe6"/><rect x="72" y="72" width="136" height="136" fill="#171715"/><path fill="#f3efe6" d="M96.4 99.6h12.8v34.1h21.3V99.6h12.8v81.1h-12.8v-34.1h-21.3v34.1H96.4zm55.5 0H186v12.8h-21.3v21.3h18.1v12.8h-18.1v21.3H186v12.8h-34.1z"/><path fill="#a8342a" d="M146.6 95.3h2.7V185h-2.7z"/><rect x="72" y="246" width="8" height="312" fill="#a8342a"/><text x="126" y="350" font-family="Georgia, 'Times New Roman', serif" font-size="104" fill="#171715">Hollywood</text><text x="126" y="455" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-style="italic" fill="#171715">Evolves</text><text x="132" y="528" font-family="Arial, sans-serif" font-size="22" letter-spacing="3" fill="#625d55">PODCAST · PUBLIC FORECAST LEDGER</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc"><title id="title">Hollywood Evolves</title><desc id="desc">Hollywood keeps reinventing itself. What happens next? An executive podcast series.</desc>
+<rect width="1200" height="630" fill="#171715"/>
+<g transform="translate(636 84) scale(.76)"><polygon points="292,278 292,302 760,560 760,40" fill="#FAF7F0" opacity=".07"/>
+<polygon points="292,284 292,296 760,430 760,170" fill="#FAF7F0" opacity=".08"/>
+<circle cx="340" cy="286" r="1.6" fill="#FAF7F0" opacity=".45"/>
+<circle cx="372" cy="262" r="1.1" fill="#FAF7F0" opacity=".45"/>
+<circle cx="410" cy="318" r="2" fill="#FAF7F0" opacity=".45"/>
+<circle cx="446" cy="240" r="1.3" fill="#FAF7F0" opacity=".45"/>
+<circle cx="468" cy="350" r="1.5" fill="#FAF7F0" opacity=".45"/>
+<circle cx="396" cy="300" r="1" fill="#FAF7F0" opacity=".45"/>
+<circle cx="520" cy="196" r="1.8" fill="#FAF7F0" opacity=".45"/>
+<circle cx="540" cy="404" r="1.2" fill="#FAF7F0" opacity=".45"/>
+<circle cx="590" cy="150" r="1.4" fill="#FAF7F0" opacity=".45"/>
+<circle cx="612" cy="452" r="1.7" fill="#FAF7F0" opacity=".45"/>
+<circle cx="660" cy="214" r="1.1" fill="#FAF7F0" opacity=".45"/>
+<circle cx="690" cy="390" r="1.5" fill="#FAF7F0" opacity=".45"/>
+<circle cx="482" cy="286" r="1" fill="#FAF7F0" opacity=".45"/>
+<path d="M96 150 L126 250 M204 116 L176 250" stroke="#625D55" stroke-width="7"/>
+<circle cx="96" cy="150" r="64" fill="#625D55"/><circle cx="96" cy="114.8" r="12.8" fill="#171715"/><circle cx="129.5" cy="139.1" r="12.8" fill="#171715"/><circle cx="116.7" cy="178.5" r="12.8" fill="#171715"/><circle cx="75.3" cy="178.5" r="12.8" fill="#171715"/><circle cx="62.5" cy="139.1" r="12.8" fill="#171715"/><circle cx="96" cy="150" r="6" fill="#171715"/>
+<circle cx="204" cy="116" r="52" fill="#625D55"/><circle cx="204" cy="87.4" r="10.4" fill="#171715"/><circle cx="231.2" cy="107.2" r="10.4" fill="#171715"/><circle cx="220.8" cy="139.1" r="10.4" fill="#171715"/><circle cx="187.2" cy="139.1" r="10.4" fill="#171715"/><circle cx="176.8" cy="107.2" r="10.4" fill="#171715"/><circle cx="204" cy="116" r="6" fill="#171715"/>
+<rect x="66" y="246" width="176" height="94" fill="#625D55"/>
+<rect x="84" y="264" width="44" height="8" fill="#171715"/><rect x="84" y="280" width="44" height="8" fill="#171715"/>
+<circle cx="206" cy="304" r="12" fill="#171715"/>
+<rect x="242" y="272" width="42" height="36" fill="#625D55"/><rect x="284" y="264" width="10" height="52" fill="#E5DED1"/>
+<rect x="54" y="340" width="200" height="10" fill="#625D55"/>
+<rect x="455" y="238" width="290" height="122" fill="none" stroke="#A8342A" stroke-width="3"/>
+<rect x="472" y="227" width="256" height="144" fill="none" stroke="#78A9B5" stroke-width="2"/>
+<rect x="510" y="234" width="180" height="131" fill="none" stroke="#E5DED1" stroke-width="2"/>
+<rect x="562" y="228" width="80" height="142" fill="#A8342A"/>
+<rect x="570" y="236" width="64" height="126" fill="none" stroke="#FAF7F0" stroke-width="1.5" opacity=".6"/></g>
+<svg x="72" y="60" width="348" height="64" viewBox="0 0 348 64"><rect x="0.5" y="0.5" width="63" height="63" fill="#171715" stroke="#f3efe6"/><path fill="#f3efe6" d="M11.5 13h6v16h10V13h6v38h-6V35h-10v16h-6zm26 0h16v6h-10v10H52v6h-8.5v10h10v6h-16z"/><path fill="#a8342a" d="M35 11h1.25v42H35z"/><text x="84" y="28" fill="#f3efe6" font-family="Georgia, 'Times New Roman', serif" font-size="23">Hollywood</text><text x="84" y="52" fill="#f3efe6" font-family="Georgia, 'Times New Roman', serif" font-size="23" font-style="italic">Evolves</text></svg>
+<text x="72" y="272" font-family="Newsreader, Georgia, serif" font-size="66" letter-spacing="-2.2" fill="#FAF7F0">Hollywood keeps</text>
+<text x="72" y="342" font-family="Newsreader, Georgia, serif" font-size="66" letter-spacing="-2.2" fill="#FAF7F0">reinventing itself.</text>
+<text x="72" y="412" font-family="Newsreader, Georgia, serif" font-size="66" letter-spacing="-2.2" fill="#EF8178">What happens next?</text>
+<rect x="72" y="484" width="56" height="4" fill="#A8342A"/>
+<text x="72" y="552" font-family="'DM Mono', 'Courier New', monospace" font-weight="500" font-size="19" letter-spacing="2.2" fill="#CBC6BD">AN EXECUTIVE PODCAST SERIES · SEASON ONE</text>
+</svg>
