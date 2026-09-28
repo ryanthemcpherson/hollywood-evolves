@@ -72,9 +72,10 @@ h2{font:450 clamp(42px,5vw,70px)/.95 var(--serif);letter-spacing:-.035em}
 .season-grid{row-gap:48px}
 .season header{grid-column:1/8}
 .season header>p:last-child{max-width:60ch;margin:0;color:var(--muted)}
-.season-slate{grid-column:1/13;list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:48px 24px;align-items:start}
-.episode>img{display:block;width:100%;height:auto;border:1px solid var(--ink)}
-.episode-body{padding-top:16px}
+.season-slate{grid-column:1/13;list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 24px}
+.episode{display:grid;grid-template-rows:subgrid;grid-row:span 6;row-gap:0;align-items:start;padding-bottom:48px}
+.episode-body{display:contents}
+.episode>img{display:block;width:100%;height:auto;margin-bottom:16px;border:1px solid var(--ink)}
 .episode-number{margin:0;color:var(--accent)}
 .episode h3{margin:6px 0 6px;font:450 26px/1.05 var(--serif);letter-spacing:-.01em}
 .episode-arc{margin:0;color:var(--muted)}
@@ -147,9 +148,10 @@ footer{padding-block:38px 22px;background:var(--accent);color:var(--white);font-
 .footer-grid .disclosure{grid-column:3/13;padding-top:14px;border-top:1px solid #d5776f}
 
 @media(max-width:1100px){
-.season-slate{grid-template-columns:repeat(2,minmax(0,1fr))}
-.episode{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:start}
-.episode-body{padding-top:0}
+.season-slate{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:48px}
+.episode{grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-template-rows:none;grid-row:auto;gap:20px;padding-bottom:0}
+.episode-body{display:block}
+.episode>img{margin-bottom:0}
 .market header,.market-steps,.market-note{grid-column:1/13;grid-row:auto}
 .market header{max-width:720px}
 }
